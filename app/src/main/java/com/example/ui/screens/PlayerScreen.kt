@@ -174,7 +174,24 @@ fun PlayerScreen(
                         channelListFocusRequester.requestFocus()
                     } catch (e: Exception) {}
                 },
-                showFocusBorder = isSidebarVisible
+                showFocusBorder = isSidebarVisible,
+                onSwipeLeft = {
+                    isSidebarVisible = false
+                    lastActivityTime = System.currentTimeMillis()
+                },
+                onSwipeRight = {
+                    isSidebarVisible = true
+                    lastActivityTime = System.currentTimeMillis()
+                    if (isLandscape) {
+                        try {
+                            channelListFocusRequester.requestFocus()
+                        } catch (e: Exception) {}
+                    }
+                },
+                onTap = {
+                    isSidebarVisible = !isSidebarVisible
+                    lastActivityTime = System.currentTimeMillis()
+                }
             )
         }
     }

@@ -44,6 +44,7 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import kotlinx.coroutines.delay
 
@@ -61,7 +62,10 @@ fun VideoPlayer(
     focusRequester: FocusRequester = remember { FocusRequester() },
     onDpadLeft: () -> Unit = {},
     onDpadRight: () -> Unit = {},
-    showFocusBorder: Boolean = true
+    showFocusBorder: Boolean = true,
+    onSwipeLeft: (() -> Unit)? = null,
+    onSwipeRight: (() -> Unit)? = null,
+    onTap: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     var isBuffering by remember { mutableStateOf(false) }
@@ -136,7 +140,7 @@ fun VideoPlayer(
             .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MOVIE)
             .build()
 
-        val player = ExoPlayer.Builder(context)
+        val player = ExoPlayer.Builder(context.applicationContext)
             .setLoadControl(loadControl)
             .setAudioAttributes(audioAttributes, true)
             .build()
@@ -280,53 +284,6 @@ fun VideoPlayer(
                 color = if (isFocused && showFocusBorder) Color(0xFFFF9800) else Color.Transparent,
                 shape = RoundedCornerShape(4.dp)
             )
-            // Handle vertical swipe Up/Down gestures on the screen to change channels
-            .pointerInput(Unit) {
-                var accumulatedDrag = 0f
-                detectVerticalDragGestures(
-                    onDragStart = { accumulatedDrag = 0f },
-                    onDragEnd = {
-                        if (accumulatedDrag < -70f) { // Swiped UP -> Next Channel
-                            onNextChannel()
-                        } else if (accumulatedDrag > 70f) { // Swiped DOWN -> Previous Channel
-                            onPreviousChannel()
-                        }
-                    },
-                    onVerticalDrag = { change, dragAmount ->
-                        change.consume()
-                        accumulatedDrag += dragAmount
-                    }
-                )
-            }
-            // Handle YouTube-like pinch-to-zoom (two-finger scale gesture)
-            .pointerInput(resizeMode) {
-                detectTransformGestures { _, _, zoom, _ ->
-                    if (zoom > 1.05f) {
-                        if (resizeMode != 3) {
-                            onResizeModeChange(3) // AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                            zoomFeedbackMessage = "Zoom to Fill (জুম টু ফিল)"
-                            showZoomFeedback = true
-                        }
-                    } else if (zoom < 0.95f) {
-                        if (resizeMode != 0) {
-                            onResizeModeChange(0) // AspectRatioFrameLayout.RESIZE_MODE_FIT
-                            zoomFeedbackMessage = "Fit to Screen (ফিট টু স্ক্রীন)"
-                            showZoomFeedback = true
-                        }
-                    }
-                }
-            }
-            // Handle double-tap on screen to toggle resize mode
-            .pointerInput(resizeMode) {
-                detectTapGestures(
-                    onDoubleTap = {
-                        val newMode = if (resizeMode == 0) 3 else 0
-                        onResizeModeChange(newMode)
-                        zoomFeedbackMessage = if (newMode == 3) "Zoom to Fill (জুম টু ফিল)" else "Fit to Screen (ফিট টু স্ক্রীন)"
-                        showZoomFeedback = true
-                    }
-                )
-            }
              // Handle TV Box physical Remote hardware buttons or Mobile Keyboard inputs
             .onKeyEvent { event ->
                 if (event.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
@@ -374,6 +331,9 @@ fun VideoPlayer(
                     PlayerView(context).apply {
                         useController = false
                         keepScreenOn = true
+                        isFocusable = false
+                        isFocusableInTouchMode = false
+                        descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
                         layoutParams = FrameLayout.LayoutParams(
                             ViewGroup.LayoutParams.MATCH_PARENT,
                             ViewGroup.LayoutParams.MATCH_PARENT
@@ -385,6 +345,81 @@ fun VideoPlayer(
                     view.resizeMode = resizeMode
                 },
                 modifier = Modifier.fillMaxSize()
+            )
+
+            // Transparent Gesture Overlay Box covering the entire player area to handle swipe up/down/left/right and tap/double tap
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    // 1. Single tap to toggle sidebar / channel list, double tap to toggle zoom
+                    .pointerInput(resizeMode) {
+                        detectTapGestures(
+                            onTap = {
+                                onTap?.invoke()
+                            },
+                            onDoubleTap = {
+                                val newMode = if (resizeMode == 0) 3 else 0
+                                onResizeModeChange(newMode)
+                                zoomFeedbackMessage = if (newMode == 3) "Zoom to Fill (জুম টু ফিল)" else "Fit to Screen (ফিট টু স্ক্রীন)"
+                                showZoomFeedback = true
+                            }
+                        )
+                    }
+                    // 2. Drag gestures for Swipes (Horizontal left/right and Vertical up/down)
+                    .pointerInput(Unit) {
+                        var totalDragX = 0f
+                        var totalDragY = 0f
+                        detectDragGestures(
+                            onDragStart = {
+                                totalDragX = 0f
+                                totalDragY = 0f
+                            },
+                            onDragEnd = {
+                                val absX = kotlin.math.abs(totalDragX)
+                                val absY = kotlin.math.abs(totalDragY)
+                                if (absX > absY) {
+                                    if (absX > 80f) {
+                                        if (totalDragX < 0) {
+                                            onSwipeLeft?.invoke()
+                                        } else {
+                                            onSwipeRight?.invoke()
+                                        }
+                                    }
+                                } else {
+                                    if (absY > 80f) {
+                                        if (totalDragY < 0) {
+                                            onNextChannel()
+                                        } else {
+                                            onPreviousChannel()
+                                        }
+                                    }
+                                }
+                            },
+                            onDrag = { change, dragAmount ->
+                                change.consume()
+                                totalDragX += dragAmount.x
+                                totalDragY += dragAmount.y
+                            }
+                        )
+                    }
+                    // 3. YouTube-like pinch to zoom
+                    .pointerInput(resizeMode) {
+                        detectTransformGestures { _, _, zoom, _ ->
+                            if (zoom > 1.05f) {
+                                if (resizeMode != 3) {
+                                    onResizeModeChange(3)
+                                    zoomFeedbackMessage = "Zoom to Fill (জুম টু ফিল)"
+                                    showZoomFeedback = true
+                                }
+                            } else if (zoom < 0.95f) {
+                                if (resizeMode != 0) {
+                                    onResizeModeChange(0)
+                                    zoomFeedbackMessage = "Fit to Screen (ফিট টু স্ক্রীন)"
+                                    showZoomFeedback = true
+                                }
+                            }
+                        }
+                    }
             )
 
             // Zoom/Aspect Ratio feedback message overlay
