@@ -19,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -325,6 +326,16 @@ fun VideoPlayer(
                 Text("Select a channel to play", color = Color.White)
             }
         } else {
+            val targetScale = if (resizeMode == 3) 1.25f else 1.0f
+            val animatedScale by androidx.compose.animation.core.animateFloatAsState(
+                targetValue = targetScale,
+                animationSpec = androidx.compose.animation.core.tween(
+                    durationMillis = 350,
+                    easing = androidx.compose.animation.core.FastOutSlowInEasing
+                ),
+                label = "videoZoomScale"
+            )
+
             // Android Media3 PlayerView inside Compose container
             AndroidView(
                 factory = { _ ->
@@ -344,28 +355,16 @@ fun VideoPlayer(
                     view.player = exoPlayer
                     view.resizeMode = resizeMode
                 },
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .scale(animatedScale)
             )
 
             // Transparent Gesture Overlay Box covering the entire player area to handle swipe up/down/left/right and tap/double tap
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    // 1. Single tap to toggle sidebar / channel list, double tap to toggle zoom
-                    .pointerInput(resizeMode) {
-                        detectTapGestures(
-                            onTap = {
-                                onTap?.invoke()
-                            },
-                            onDoubleTap = {
-                                val newMode = if (resizeMode == 0) 3 else 0
-                                onResizeModeChange(newMode)
-                                zoomFeedbackMessage = if (newMode == 3) "Zoom to Fill (জুম টু ফিল)" else "Fit to Screen (ফিট টু স্ক্রীন)"
-                                showZoomFeedback = true
-                            }
-                        )
-                    }
-                    // 2. Drag gestures for Swipes (Horizontal left/right and Vertical up/down)
+                    // 1. Drag gestures for Swipes (Horizontal left/right and Vertical up/down)
                     .pointerInput(Unit) {
                         var totalDragX = 0f
                         var totalDragY = 0f
@@ -402,19 +401,33 @@ fun VideoPlayer(
                             }
                         )
                     }
+                    // 2. Single tap to toggle sidebar / channel list, double tap to toggle zoom
+                    .pointerInput(resizeMode) {
+                        detectTapGestures(
+                            onTap = {
+                                onTap?.invoke()
+                            },
+                            onDoubleTap = {
+                                val newMode = if (resizeMode == 0) 3 else 0
+                                onResizeModeChange(newMode)
+                                zoomFeedbackMessage = if (newMode == 3) "Zoom to Fill" else "Fit to Screen"
+                                showZoomFeedback = true
+                            }
+                        )
+                    }
                     // 3. YouTube-like pinch to zoom
                     .pointerInput(resizeMode) {
                         detectTransformGestures { _, _, zoom, _ ->
                             if (zoom > 1.05f) {
                                 if (resizeMode != 3) {
                                     onResizeModeChange(3)
-                                    zoomFeedbackMessage = "Zoom to Fill (জুম টু ফিল)"
+                                    zoomFeedbackMessage = "Zoom to Fill"
                                     showZoomFeedback = true
                                 }
                             } else if (zoom < 0.95f) {
                                 if (resizeMode != 0) {
                                     onResizeModeChange(0)
-                                    zoomFeedbackMessage = "Fit to Screen (ফিট টু স্ক্রীন)"
+                                    zoomFeedbackMessage = "Fit to Screen"
                                     showZoomFeedback = true
                                 }
                             }
@@ -458,7 +471,7 @@ fun VideoPlayer(
 
 
             // Buffering Indicator overlay
-            if (isBuffering) {
+            if (isBuffering && bufferProfile != "low_internet") {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()

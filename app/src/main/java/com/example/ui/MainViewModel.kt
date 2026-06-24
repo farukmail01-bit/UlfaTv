@@ -10,7 +10,7 @@ import kotlinx.coroutines.launch
 
 sealed interface SyncState {
     object Idle : SyncState
-    object Syncing : SyncState
+    data class Syncing(val message: String = "Parsing Playlist...") : SyncState
     object Success : SyncState
     data class Error(val message: String) : SyncState
 }
@@ -60,6 +60,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _lastSyncTime = MutableStateFlow(0L)
     val lastSyncTime: StateFlow<Long> = _lastSyncTime.asStateFlow()
+
+    private val _isSidebarVisible = MutableStateFlow(true)
+    val isSidebarVisible: StateFlow<Boolean> = _isSidebarVisible.asStateFlow()
+
+    fun setSidebarVisible(visible: Boolean) {
+        _isSidebarVisible.value = visible
+    }
+
+    private val _currentScreen = MutableStateFlow("player")
+    val currentScreen: StateFlow<String> = _currentScreen.asStateFlow()
+
+    fun navigateTo(screen: String) {
+        _currentScreen.value = screen
+    }
 
     // Reactive channels derived from database, search query, and category
     val categories: StateFlow<List<String>> = repository.categories
@@ -174,8 +188,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun syncChannels() {
         viewModelScope.launch {
-            _syncState.value = SyncState.Syncing
-            val result = repository.syncChannels(_playlistUrlState.value)
+            _syncState.value = SyncState.Syncing("Downloading Playlist...")
+            val result = repository.syncChannels(_playlistUrlState.value) { progressMsg ->
+                _syncState.value = SyncState.Syncing(progressMsg)
+            }
             result.onSuccess {
                 _syncState.value = SyncState.Success
                 loadPreferences() // reload sync timestamp
@@ -195,9 +211,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun syncChannelsFromFile(filePath: String) {
         viewModelScope.launch {
-            _syncState.value = SyncState.Syncing
+            _syncState.value = SyncState.Syncing("Reading File...")
             saveM3uFilePath(filePath)
-            val result = repository.syncChannelsFromFile(filePath)
+            val result = repository.syncChannelsFromFile(filePath) { progressMsg ->
+                _syncState.value = SyncState.Syncing(progressMsg)
+            }
             result.onSuccess {
                 _syncState.value = SyncState.Success
                 loadPreferences() // reload sync timestamp and file path

@@ -34,6 +34,58 @@ import com.example.ui.screens.SettingsScreen
 import com.example.ui.theme.MyApplicationTheme
 
 class MainActivity : ComponentActivity() {
+    private lateinit var viewModel: MainViewModel
+
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        if (event.action == android.view.KeyEvent.ACTION_DOWN) {
+            val keyCode = event.keyCode
+            if (::viewModel.isInitialized) {
+                val currentScreen = viewModel.currentScreen.value
+                val isSidebarVisible = viewModel.isSidebarVisible.value
+                
+                if (currentScreen == "player") {
+                    when (keyCode) {
+                        android.view.KeyEvent.KEYCODE_PAGE_UP,
+                        android.view.KeyEvent.KEYCODE_CHANNEL_UP -> {
+                            viewModel.playNextChannel()
+                            return true
+                        }
+                        android.view.KeyEvent.KEYCODE_PAGE_DOWN,
+                        android.view.KeyEvent.KEYCODE_CHANNEL_DOWN -> {
+                            viewModel.playPreviousChannel()
+                            return true
+                        }
+                        android.view.KeyEvent.KEYCODE_DPAD_UP -> {
+                            if (!isSidebarVisible) {
+                                viewModel.playNextChannel()
+                                return true
+                            }
+                        }
+                        android.view.KeyEvent.KEYCODE_DPAD_DOWN -> {
+                            if (!isSidebarVisible) {
+                                viewModel.playPreviousChannel()
+                                return true
+                            }
+                        }
+                        android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                            if (!isSidebarVisible) {
+                                viewModel.setSidebarVisible(true)
+                                return true
+                            }
+                        }
+                        android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
+                            if (isSidebarVisible) {
+                                viewModel.setSidebarVisible(false)
+                                return true
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
@@ -41,7 +93,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         
         setContent {
-            val viewModel: MainViewModel = viewModel()
+            viewModel = viewModel()
             val themeMode by viewModel.themeMode.collectAsState()
             
             val isDarkTheme = when (themeMode) {
@@ -54,7 +106,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    var currentScreen by remember { mutableStateOf("player") }
+                    val currentScreen by viewModel.currentScreen.collectAsState()
 
                     AnimatedContent(
                         targetState = currentScreen,
@@ -75,14 +127,14 @@ class MainActivity : ComponentActivity() {
                             "player" -> {
                                 PlayerScreen(
                                     viewModel = viewModel,
-                                    onNavigateToSettings = { currentScreen = "settings" },
+                                    onNavigateToSettings = { viewModel.navigateTo("settings") },
                                     modifier = Modifier.fillMaxSize()
                                 )
                             }
                             "settings" -> {
                                 SettingsScreen(
                                     viewModel = viewModel,
-                                    onBack = { currentScreen = "player" },
+                                    onBack = { viewModel.navigateTo("player") },
                                     modifier = Modifier.fillMaxSize()
                                 )
                             }

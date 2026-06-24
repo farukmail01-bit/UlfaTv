@@ -90,7 +90,7 @@ fun PlayerScreen(
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE || configuration.screenWidthDp >= 600
 
-    var isSidebarVisible by remember { mutableStateOf(true) }
+    val isSidebarVisible by viewModel.isSidebarVisible.collectAsState()
     var lastActivityTime by remember { mutableStateOf(System.currentTimeMillis()) }
 
     val context = LocalContext.current
@@ -98,7 +98,7 @@ fun PlayerScreen(
 
     androidx.activity.compose.BackHandler {
         if (isLandscape && isSidebarVisible) {
-            isSidebarVisible = false
+            viewModel.setSidebarVisible(false)
             lastActivityTime = java.lang.System.currentTimeMillis()
         } else {
             // Completely terminate the activity and exit process to prevent background audio playback
@@ -111,34 +111,25 @@ fun PlayerScreen(
     LaunchedEffect(isSidebarVisible, lastActivityTime, isLandscape) {
         if (isLandscape && isSidebarVisible) {
             kotlinx.coroutines.delay(5000)
-            isSidebarVisible = false
+            viewModel.setSidebarVisible(false)
         }
     }
 
     // Reset visibility when layout orientation changes
     LaunchedEffect(isLandscape) {
-        isSidebarVisible = true
+        viewModel.setSidebarVisible(true)
     }
 
-    // Remote focus initialization when screen loads and channels list is loaded
-    LaunchedEffect(channels) {
-        if (channels.isNotEmpty()) {
+    // Sync remote control focus based on sidebar visibility
+    LaunchedEffect(isSidebarVisible) {
+        if (isSidebarVisible) {
             try {
                 channelListFocusRequester.requestFocus()
-            } catch (e: Exception) {
-                // Safe focus ignore
-            }
-        }
-    }
-
-    // Sync remote control focus to the VideoPlayer Box when the browsing list collapses (to keep TV keys active)
-    LaunchedEffect(isSidebarVisible) {
-        if (!isSidebarVisible) {
+            } catch (e: Exception) {}
+        } else {
             try {
                 playerFocusRequester.requestFocus()
-            } catch (e: Exception) {
-                // Focus request failure safeguard
-            }
+            } catch (e: Exception) {}
         }
     }
 
@@ -164,11 +155,11 @@ fun PlayerScreen(
                 modifier = Modifier.fillMaxSize(),
                 focusRequester = playerFocusRequester,
                 onDpadLeft = {
-                    isSidebarVisible = false
+                    viewModel.setSidebarVisible(false)
                     lastActivityTime = System.currentTimeMillis()
                 },
                 onDpadRight = {
-                    isSidebarVisible = true
+                    viewModel.setSidebarVisible(true)
                     lastActivityTime = System.currentTimeMillis()
                     try {
                         channelListFocusRequester.requestFocus()
@@ -176,11 +167,11 @@ fun PlayerScreen(
                 },
                 showFocusBorder = isSidebarVisible,
                 onSwipeLeft = {
-                    isSidebarVisible = false
+                    viewModel.setSidebarVisible(false)
                     lastActivityTime = System.currentTimeMillis()
                 },
                 onSwipeRight = {
-                    isSidebarVisible = true
+                    viewModel.setSidebarVisible(true)
                     lastActivityTime = System.currentTimeMillis()
                     if (isLandscape) {
                         try {
@@ -189,7 +180,7 @@ fun PlayerScreen(
                     }
                 },
                 onTap = {
-                    isSidebarVisible = !isSidebarVisible
+                    viewModel.setSidebarVisible(!isSidebarVisible)
                     lastActivityTime = System.currentTimeMillis()
                 }
             )
@@ -310,9 +301,9 @@ fun PlayerScreen(
                                 onHorizontalDrag = { change, dragAmount ->
                                     change.consume()
                                     if (dragAmount < -15f) {
-                                        isSidebarVisible = false
+                                        viewModel.setSidebarVisible(false)
                                     } else if (dragAmount > 15f) {
-                                        isSidebarVisible = true
+                                        viewModel.setSidebarVisible(true)
                                     }
                                     lastActivityTime = System.currentTimeMillis()
                                 }
@@ -471,7 +462,7 @@ fun PlayerScreen(
                                     lastActivityTime = System.currentTimeMillis()
                                 },
                                 onCollapseSidebar = {
-                                    isSidebarVisible = false
+                                    viewModel.setSidebarVisible(false)
                                     lastActivityTime = System.currentTimeMillis()
                                 }
                             )
@@ -492,7 +483,7 @@ fun PlayerScreen(
                                     detectTapGestures(
                                         onTap = {
                                             // Tapping on the active player toggles sidebar visibility on landscape screens
-                                            isSidebarVisible = !isSidebarVisible
+                                            viewModel.setSidebarVisible(!isSidebarVisible)
                                             lastActivityTime = System.currentTimeMillis()
                                         }
                                     )

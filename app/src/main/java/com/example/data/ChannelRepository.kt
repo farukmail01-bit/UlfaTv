@@ -5,6 +5,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.IOException
@@ -31,9 +36,83 @@ class ChannelRepository(
         return channelDao.getChannelCount()
     }
 
-    suspend fun syncChannelsFromFile(filePath: String): Result<Unit> = withContext(Dispatchers.IO) {
+    private suspend fun isChannelActive(url: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            // First try with lightweight HEAD request
+            val request = Request.Builder()
+                .url(url)
+                .head()
+                .build()
+            
+            val singleClient = okHttpClient.newBuilder()
+                .connectTimeout(1500, java.util.concurrent.TimeUnit.MILLISECONDS)
+                .readTimeout(1500, java.util.concurrent.TimeUnit.MILLISECONDS)
+                .build()
+                
+            singleClient.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    true
+                } else {
+                    // Fallback to GET requesting only the first byte (Range header) to preserve bandwidth
+                    val getRequest = Request.Builder()
+                        .url(url)
+                        .header("Range", "bytes=0-0")
+                        .build()
+                    singleClient.newCall(getRequest).execute().use { getResponse ->
+                        getResponse.isSuccessful
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private suspend fun filterActiveChannels(
+        parsedChannels: List<LiveChannel>,
+        onProgress: (String) -> Unit
+    ): List<LiveChannel> = withContext(Dispatchers.IO) {
+        val total = parsedChannels.size
+        if (total == 0) return@withContext emptyList()
+
+        onProgress("Verifying streams: 0/$total checked (0 active)...")
+
+        val activeChannels = java.util.Collections.synchronizedList(mutableListOf<LiveChannel>())
+        val verifiedCount = java.util.concurrent.atomic.AtomicInteger(0)
+        val activeCount = java.util.concurrent.atomic.AtomicInteger(0)
+
+        val semaphore = Semaphore(25) // Up to 25 parallel checks at once to avoid network choke
+
+        coroutineScope {
+            parsedChannels.map { channel ->
+                async {
+                    semaphore.withPermit {
+                        val active = isChannelActive(channel.url)
+                        val currentVerified = verifiedCount.incrementAndGet()
+                        if (active) {
+                            val currentActive = activeCount.incrementAndGet()
+                            activeChannels.add(channel)
+                        }
+                        if (currentVerified % 5 == 0 || currentVerified == total) {
+                            onProgress("Verifying streams: $currentVerified/$total checked (${activeCount.get()} active)...")
+                        }
+                    }
+                }
+            }.awaitAll()
+        }
+
+        if (activeChannels.isEmpty()) {
+            Log.w("ChannelRepository", "No active channels found. Saving all parsed channels as fallback.")
+            parsedChannels
+        } else {
+            activeChannels.sortedBy { it.orderIndex }
+        }
+    }
+
+    suspend fun syncChannelsFromFile(filePath: String, onProgress: (String) -> Unit): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             Log.d("ChannelRepository", "Syncing channels from local file: $filePath")
+            onProgress("Loading local file...")
             val file = java.io.File(filePath)
             if (!file.exists()) {
                 return@withContext Result.failure(FileNotFoundException("File does not exist at: $filePath"))
@@ -50,14 +129,20 @@ class ChannelRepository(
             val currentFavorites = channelDao.getFavoriteChannels().first().map { it.url }.toSet()
 
             // 2. Parse M3U
+            onProgress("Parsing local M3U file...")
             val newChannels = parseM3U(bodyText, currentFavorites)
             if (newChannels.isEmpty()) {
                 return@withContext Result.failure(Exception("No valid channel entries parsed from this file"))
             }
 
-            // 3. Clear and write
+            // 3. Filter only active channels
+            onProgress("Verifying stream URLs...")
+            val activeChannels = filterActiveChannels(newChannels, onProgress)
+
+            // 4. Clear and write
+            onProgress("Caching verified channels...")
             channelDao.clearAllChannels()
-            channelDao.insertChannels(newChannels)
+            channelDao.insertChannels(activeChannels)
 
             // Save last sync time
             preferenceDao.insertPreference(
@@ -67,7 +152,7 @@ class ChannelRepository(
                 AppPreference("m3u_file_path", filePath)
             )
 
-            Log.d("ChannelRepository", "Synchronized ${newChannels.size} channels successfully from file")
+            Log.d("ChannelRepository", "Synchronized ${activeChannels.size} channels successfully from file")
             return@withContext Result.success(Unit)
         } catch (e: Exception) {
             Log.e("ChannelRepository", "Error syncing channels from file", e)
@@ -75,9 +160,10 @@ class ChannelRepository(
         }
     }
 
-    suspend fun syncChannels(playlistUrl: String): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun syncChannels(playlistUrl: String, onProgress: (String) -> Unit): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             Log.d("ChannelRepository", "Syncing channels from: $playlistUrl")
+            onProgress("Downloading remote playlist...")
             val request = Request.Builder()
                 .url(playlistUrl)
                 .build()
@@ -96,21 +182,27 @@ class ChannelRepository(
                 val currentFavorites = channelDao.getFavoriteChannels().first().map { it.url }.toSet()
 
                 // 2. Parse M3U
+                onProgress("Parsing remote playlist...")
                 val newChannels = parseM3U(bodyText, currentFavorites)
                 if (newChannels.isEmpty()) {
                     return@withContext Result.failure(Exception("No channels found in the parsed playlist"))
                 }
 
-                // 3. Clear and write
+                // 3. Filter only active channels
+                onProgress("Verifying stream URLs...")
+                val activeChannels = filterActiveChannels(newChannels, onProgress)
+
+                // 4. Clear and write
+                onProgress("Caching verified channels...")
                 channelDao.clearAllChannels()
-                channelDao.insertChannels(newChannels)
+                channelDao.insertChannels(activeChannels)
 
                 // Save last sync time
                 preferenceDao.insertPreference(
                     AppPreference("last_sync_time", System.currentTimeMillis().toString())
                 )
 
-                Log.d("ChannelRepository", "Synchronized ${newChannels.size} channels successfully")
+                Log.d("ChannelRepository", "Synchronized ${activeChannels.size} channels successfully")
                 return@withContext Result.success(Unit)
             }
         } catch (e: Exception) {
