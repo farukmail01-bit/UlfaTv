@@ -2,6 +2,7 @@ package com.example.ui.components
 
 import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.media.AudioManager
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -172,7 +173,7 @@ fun VideoPlayer(
                             .getStreamVolume(AudioManager.STREAM_MUSIC)
                             .toFloat() / maxVolume
 
-                        val activity = context as? Activity
+                        val activity = context.findActivity()
                         val lp = activity?.window?.attributes
                         startBrightness = if (lp != null && lp.screenBrightness >= 0f) {
                             lp.screenBrightness
@@ -199,7 +200,7 @@ fun VideoPlayer(
                             val newBrightness = (startBrightness + dragPercentY).coerceIn(0.01f, 1f)
                             startBrightness = newBrightness
 
-                            val activity = context as? Activity
+                            val activity = context.findActivity()
                             activity?.runOnUiThread {
                                 val lp = activity.window.attributes
                                 lp.screenBrightness = newBrightness
@@ -468,4 +469,15 @@ fun VideoPlayer(
             }
         }
     }
+}
+
+private fun Context.findActivity(): Activity? {
+    var currentContext = this
+    while (currentContext is ContextWrapper) {
+        if (currentContext is Activity) {
+            return currentContext
+        }
+        currentContext = currentContext.baseContext
+    }
+    return currentContext as? Activity
 }

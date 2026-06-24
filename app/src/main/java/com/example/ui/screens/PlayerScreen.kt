@@ -42,6 +42,9 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.res.Configuration
 import android.view.KeyEvent
 import coil.compose.rememberAsyncImagePainter
@@ -91,7 +94,7 @@ fun PlayerScreen(
     var lastActivityTime by remember { mutableStateOf(System.currentTimeMillis()) }
 
     val context = LocalContext.current
-    val activity = (context as? android.app.Activity)
+    val activity = context.findActivity()
 
     androidx.activity.compose.BackHandler {
         if (isLandscape && isSidebarVisible) {
@@ -203,7 +206,7 @@ fun PlayerScreen(
                         }
                     },
                     actions = {
-                        val activity = (LocalContext.current as? android.app.Activity)
+                        val activity = LocalContext.current.findActivity()
                         // Force device into Landscape TV Mode
                         IconButton(
                             onClick = { 
@@ -347,7 +350,7 @@ fun PlayerScreen(
                                     )
                                 }
                                 Row {
-                                    val activity = (LocalContext.current as? android.app.Activity)
+                                    val activity = LocalContext.current.findActivity()
                                     IconButton(
                                         onClick = { 
                                             activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED 
@@ -799,4 +802,15 @@ fun ColumnScope.ChannelsVerticalListing(
             }
         }
     }
+}
+
+private fun Context.findActivity(): Activity? {
+    var currentContext = this
+    while (currentContext is ContextWrapper) {
+        if (currentContext is Activity) {
+            return currentContext
+        }
+        currentContext = currentContext.baseContext
+    }
+    return currentContext as? Activity
 }
