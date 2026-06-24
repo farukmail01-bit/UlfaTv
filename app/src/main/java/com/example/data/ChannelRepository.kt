@@ -28,6 +28,11 @@ class ChannelRepository(
         .readTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
         .build()
 
+    private val verificationHttpClient = okHttpClient.newBuilder()
+        .connectTimeout(1500, java.util.concurrent.TimeUnit.MILLISECONDS)
+        .readTimeout(1500, java.util.concurrent.TimeUnit.MILLISECONDS)
+        .build()
+
     suspend fun toggleFavorite(url: String, isFavorite: Boolean) {
         channelDao.updateFavoriteStatus(url, isFavorite)
     }
@@ -44,12 +49,7 @@ class ChannelRepository(
                 .head()
                 .build()
             
-            val singleClient = okHttpClient.newBuilder()
-                .connectTimeout(1500, java.util.concurrent.TimeUnit.MILLISECONDS)
-                .readTimeout(1500, java.util.concurrent.TimeUnit.MILLISECONDS)
-                .build()
-                
-            singleClient.newCall(request).execute().use { response ->
+            verificationHttpClient.newCall(request).execute().use { response ->
                 if (response.isSuccessful) {
                     true
                 } else {
@@ -58,7 +58,7 @@ class ChannelRepository(
                         .url(url)
                         .header("Range", "bytes=0-0")
                         .build()
-                    singleClient.newCall(getRequest).execute().use { getResponse ->
+                    verificationHttpClient.newCall(getRequest).execute().use { getResponse ->
                         getResponse.isSuccessful
                     }
                 }
@@ -81,24 +81,24 @@ class ChannelRepository(
         val verifiedCount = java.util.concurrent.atomic.AtomicInteger(0)
         val activeCount = java.util.concurrent.atomic.AtomicInteger(0)
 
-        val semaphore = Semaphore(25) // Up to 25 parallel checks at once to avoid network choke
-
-        coroutineScope {
-            parsedChannels.map { channel ->
-                async {
-                    semaphore.withPermit {
+        // Chunking prevents OOM and native thread creation errors (Unable to create new native thread)
+        val chunks = parsedChannels.chunked(15)
+        for (chunk in chunks) {
+            coroutineScope {
+                chunk.map { channel ->
+                    async {
                         val active = isChannelActive(channel.url)
                         val currentVerified = verifiedCount.incrementAndGet()
                         if (active) {
-                            val currentActive = activeCount.incrementAndGet()
+                            activeCount.incrementAndGet()
                             activeChannels.add(channel)
                         }
                         if (currentVerified % 5 == 0 || currentVerified == total) {
                             onProgress("Verifying streams: $currentVerified/$total checked (${activeCount.get()} active)...")
                         }
                     }
-                }
-            }.awaitAll()
+                }.awaitAll()
+            }
         }
 
         if (activeChannels.isEmpty()) {
@@ -109,40 +109,7 @@ class ChannelRepository(
         }
     }
 
-    suspend fun verifyAndFilterActiveChannels(onProgress: (String) -> Unit) = withContext(Dispatchers.IO) {
-        val channels = channelDao.getAllChannels().first()
-        val total = channels.size
-        if (total == 0) return@withContext
-
-        onProgress("Optimizing: 0/$total checked (0 active)...")
-
-        val activeCount = java.util.concurrent.atomic.AtomicInteger(0)
-        val verifiedCount = java.util.concurrent.atomic.AtomicInteger(0)
-        val semaphore = Semaphore(20) // Limit parallel requests to 20 to avoid clogging network
-
-        coroutineScope {
-            channels.map { channel ->
-                async {
-                    semaphore.withPermit {
-                        val active = isChannelActive(channel.url)
-                        val currentVerified = verifiedCount.incrementAndGet()
-                        if (active) {
-                            activeCount.incrementAndGet()
-                        } else {
-                            // Delete inactive channel immediately from DB
-                            channelDao.deleteChannelByUrl(channel.url)
-                        }
-                        if (currentVerified % 5 == 0 || currentVerified == total) {
-                            onProgress("Verifying streams: $currentVerified/$total checked (${activeCount.get()} active)...")
-                        }
-                    }
-                }
-            }.awaitAll()
-        }
-        onProgress("Finished. Saved ${activeCount.get()} active channels.")
-    }
-
-    suspend fun syncChannelsFromFile(filePath: String, onProgress: (String) -> Unit): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun syncChannelsFromFile(filePath: String, verifyStreams: Boolean = true, onProgress: (String) -> Unit): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             Log.d("ChannelRepository", "Syncing channels from local file: $filePath")
             onProgress("Loading local file...")
@@ -168,10 +135,17 @@ class ChannelRepository(
                 return@withContext Result.failure(Exception("No valid channel entries parsed from this file"))
             }
 
-            // 3. Clear and write ALL parsed channels immediately (Zero waiting time!)
-            onProgress("Caching parsed channels...")
-            channelDao.clearAllChannels()
-            channelDao.insertChannels(newChannels)
+            // 3. Filter only active channels IN MEMORY if verifyStreams is true
+            val channelsToSave = if (verifyStreams) {
+                onProgress("Verifying stream URLs...")
+                filterActiveChannels(newChannels, onProgress)
+            } else {
+                newChannels
+            }
+
+            // 4. Update Room Database in one single atomic operation
+            onProgress("Caching verified channels...")
+            channelDao.replaceChannels(channelsToSave)
 
             // Save last sync time
             preferenceDao.insertPreference(
@@ -181,7 +155,7 @@ class ChannelRepository(
                 AppPreference("m3u_file_path", filePath)
             )
 
-            Log.d("ChannelRepository", "Synchronized ${newChannels.size} channels successfully from file")
+            Log.d("ChannelRepository", "Synchronized ${channelsToSave.size} channels successfully from file")
             return@withContext Result.success(Unit)
         } catch (e: Exception) {
             Log.e("ChannelRepository", "Error syncing channels from file", e)
@@ -189,7 +163,7 @@ class ChannelRepository(
         }
     }
 
-    suspend fun syncChannels(playlistUrl: String, onProgress: (String) -> Unit): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun syncChannels(playlistUrl: String, verifyStreams: Boolean = true, onProgress: (String) -> Unit): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             Log.d("ChannelRepository", "Syncing channels from: $playlistUrl")
             onProgress("Downloading remote playlist...")
@@ -217,17 +191,24 @@ class ChannelRepository(
                     return@withContext Result.failure(Exception("No channels found in the parsed playlist"))
                 }
 
-                // 3. Clear and write ALL parsed channels immediately (Zero waiting time!)
-                onProgress("Caching parsed channels...")
-                channelDao.clearAllChannels()
-                channelDao.insertChannels(newChannels)
+                // 3. Filter only active channels IN MEMORY if verifyStreams is true
+                val channelsToSave = if (verifyStreams) {
+                    onProgress("Verifying stream URLs...")
+                    filterActiveChannels(newChannels, onProgress)
+                } else {
+                    newChannels
+                }
+
+                // 4. Update Room Database in one single atomic operation
+                onProgress("Caching verified channels...")
+                channelDao.replaceChannels(channelsToSave)
 
                 // Save last sync time
                 preferenceDao.insertPreference(
                     AppPreference("last_sync_time", System.currentTimeMillis().toString())
                 )
 
-                Log.d("ChannelRepository", "Synchronized ${newChannels.size} channels successfully")
+                Log.d("ChannelRepository", "Synchronized ${channelsToSave.size} channels successfully")
                 return@withContext Result.success(Unit)
             }
         } catch (e: Exception) {

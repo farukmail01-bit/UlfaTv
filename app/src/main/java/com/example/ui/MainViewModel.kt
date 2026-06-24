@@ -71,9 +71,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _currentScreen = MutableStateFlow("player")
     val currentScreen: StateFlow<String> = _currentScreen.asStateFlow()
 
-    private val _backgroundScanState = MutableStateFlow<String?>(null)
-    val backgroundScanState: StateFlow<String?> = _backgroundScanState.asStateFlow()
-
     fun navigateTo(screen: String) {
         _currentScreen.value = screen
     }
@@ -119,7 +116,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val count = repository.getChannelCount()
             if (count == 0) {
-                syncChannels()
+                syncChannels(verifyStreams = false)
             } else {
                 // If we have cached channels, read auto play preference and play the last channel or first channel
                 if (autoPlayEnabled.value) {
@@ -189,47 +186,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun startBackgroundVerification() {
-        viewModelScope.launch {
-            _backgroundScanState.value = "Starting stream check..."
-            repository.verifyAndFilterActiveChannels { progressMsg ->
-                _backgroundScanState.value = progressMsg
-            }
-            // Verify if selected channel was deleted as dead, switch to first valid channel if so
-            val all = repository.allChannels.first()
-            if (all.isNotEmpty()) {
-                val current = _selectedChannel.value
-                if (current != null && !all.any { it.url == current.url }) {
-                    _selectedChannel.value = all.first()
-                }
-            } else {
-                _selectedChannel.value = null
-            }
-            kotlinx.coroutines.delay(4000)
-            _backgroundScanState.value = null
-        }
-    }
-
-    fun syncChannels(triggerBackgroundScan: Boolean = false) {
+    fun syncChannels(verifyStreams: Boolean = true) {
         viewModelScope.launch {
             _syncState.value = SyncState.Syncing("Downloading Playlist...")
-            val result = repository.syncChannels(_playlistUrlState.value) { progressMsg ->
+            val result = repository.syncChannels(_playlistUrlState.value, verifyStreams) { progressMsg ->
                 _syncState.value = SyncState.Syncing(progressMsg)
             }
             result.onSuccess {
                 _syncState.value = SyncState.Success
                 loadPreferences() // reload sync timestamp
                 
-                // If no channel is current and autoplay is on, select the first channel
-                if (_selectedChannel.value == null && autoPlayEnabled.value) {
-                    val all = repository.allChannels.first()
-                    if (all.isNotEmpty()) {
+                val all = repository.allChannels.first()
+                if (all.isNotEmpty()) {
+                    val current = _selectedChannel.value
+                    if (current != null && !all.any { it.url == current.url }) {
+                        _selectedChannel.value = all.first()
+                    } else if (current == null && autoPlayEnabled.value) {
                         _selectedChannel.value = all.first()
                     }
-                }
-
-                if (triggerBackgroundScan) {
-                    startBackgroundVerification()
+                } else {
+                    _selectedChannel.value = null
                 }
             }.onFailure { exception ->
                 _syncState.value = SyncState.Error(exception.localizedMessage ?: "Sync configuration error")
@@ -237,27 +213,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun syncChannelsFromFile(filePath: String, triggerBackgroundScan: Boolean = false) {
+    fun syncChannelsFromFile(filePath: String, verifyStreams: Boolean = true) {
         viewModelScope.launch {
             _syncState.value = SyncState.Syncing("Reading File...")
             saveM3uFilePath(filePath)
-            val result = repository.syncChannelsFromFile(filePath) { progressMsg ->
+            val result = repository.syncChannelsFromFile(filePath, verifyStreams) { progressMsg ->
                 _syncState.value = SyncState.Syncing(progressMsg)
             }
             result.onSuccess {
                 _syncState.value = SyncState.Success
                 loadPreferences() // reload sync timestamp and file path
                 
-                // If no channel is current and autoplay is on, select the first channel
-                if (_selectedChannel.value == null && autoPlayEnabled.value) {
-                    val all = repository.allChannels.first()
-                    if (all.isNotEmpty()) {
+                val all = repository.allChannels.first()
+                if (all.isNotEmpty()) {
+                    val current = _selectedChannel.value
+                    if (current != null && !all.any { it.url == current.url }) {
+                        _selectedChannel.value = all.first()
+                    } else if (current == null && autoPlayEnabled.value) {
                         _selectedChannel.value = all.first()
                     }
-                }
-
-                if (triggerBackgroundScan) {
-                    startBackgroundVerification()
+                } else {
+                    _selectedChannel.value = null
                 }
             }.onFailure { exception ->
                 _syncState.value = SyncState.Error(exception.localizedMessage ?: "File sync error")

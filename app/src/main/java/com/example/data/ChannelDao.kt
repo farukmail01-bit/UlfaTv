@@ -26,6 +26,12 @@ interface ChannelDao {
     @Query("DELETE FROM live_channels WHERE url = :url")
     suspend fun deleteChannelByUrl(url: String)
 
+    @Transaction
+    suspend fun replaceChannels(channels: List<LiveChannel>) {
+        clearAllChannels()
+        insertChannels(channels)
+    }
+
     @Query("SELECT COUNT(*) FROM live_channels")
     suspend fun getChannelCount(): Int
 }

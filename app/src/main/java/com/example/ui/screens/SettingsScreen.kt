@@ -225,7 +225,7 @@ fun SettingsScreen(
                             Button(
                                 onClick = {
                                     viewModel.saveM3uUrl(tempUrl)
-                                    viewModel.syncChannels(triggerBackgroundScan = true)
+                                    viewModel.syncChannels()
                                 },
                                 enabled = syncState !is SyncState.Syncing && tempUrl.isNotBlank(),
                                 shape = RoundedCornerShape(12.dp),
@@ -273,7 +273,7 @@ fun SettingsScreen(
 
                             Button(
                                 onClick = {
-                                    viewModel.syncChannelsFromFile(tempFilePath, triggerBackgroundScan = true)
+                                    viewModel.syncChannelsFromFile(tempFilePath)
                                 },
                                 enabled = syncState !is SyncState.Syncing && tempFilePath.isNotBlank(),
                                 shape = RoundedCornerShape(12.dp),
@@ -323,31 +323,6 @@ fun SettingsScreen(
                             )
                         }
                         else -> {}
-                    }
-
-                    val backgroundScanState by viewModel.backgroundScanState.collectAsState()
-                    backgroundScanState?.let { scanMsg ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
-                                .padding(12.dp),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            CircularProgressIndicator(
-                                strokeWidth = 2.dp,
-                                modifier = Modifier.size(16.dp),
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = scanMsg,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
                     }
                 }
             }
