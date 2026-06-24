@@ -30,11 +30,12 @@ android {
         keyAlias = "upload"
         keyPassword = System.getenv("KEY_PASSWORD")
       } else {
-        // Fallback to debug configuration for CI building
-        storeFile = file("${rootDir}/debug.keystore")
-        storePassword = "android"
-        keyAlias = "androiddebugkey"
-        keyPassword = "android"
+        // Fallback to standard built-in debug signing properties
+        val defaultDebug = signingConfigs.getByName("debug")
+        storeFile = defaultDebug.storeFile
+        storePassword = defaultDebug.storePassword
+        keyAlias = defaultDebug.keyAlias
+        keyPassword = defaultDebug.keyPassword
       }
     }
     create("debugConfig") {
