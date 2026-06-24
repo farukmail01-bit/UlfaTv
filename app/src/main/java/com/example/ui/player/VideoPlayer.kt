@@ -306,9 +306,7 @@ fun VideoPlayer(
                             true
                         }
                         KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                            exoPlayer?.let {
-                                if (it.isPlaying) it.pause() else it.play()
-                            }
+                            onTap?.invoke()
                             true
                         }
                         else -> false
@@ -326,7 +324,7 @@ fun VideoPlayer(
                 Text("Select a channel to play", color = Color.White)
             }
         } else {
-            val targetScale = if (resizeMode == 3) 1.25f else 1.0f
+            val targetScale = if (resizeMode == 3) 1.3f else 1.0f
             val animatedScale by androidx.compose.animation.core.animateFloatAsState(
                 targetValue = targetScale,
                 animationSpec = androidx.compose.animation.core.tween(
@@ -345,6 +343,7 @@ fun VideoPlayer(
                         isFocusable = false
                         isFocusableInTouchMode = false
                         descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
+                        this.resizeMode = 0 // RESIZE_MODE_FIT to enable smooth GPU scaling
                         layoutParams = FrameLayout.LayoutParams(
                             ViewGroup.LayoutParams.MATCH_PARENT,
                             ViewGroup.LayoutParams.MATCH_PARENT
@@ -353,7 +352,7 @@ fun VideoPlayer(
                 },
                 update = { view ->
                     view.player = exoPlayer
-                    view.resizeMode = resizeMode
+                    view.resizeMode = 0 // Keep RESIZE_MODE_FIT to prevent sudden layout stutters
                 },
                 modifier = Modifier
                     .fillMaxSize()

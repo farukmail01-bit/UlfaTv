@@ -109,6 +109,39 @@ class ChannelRepository(
         }
     }
 
+    suspend fun verifyAndFilterActiveChannels(onProgress: (String) -> Unit) = withContext(Dispatchers.IO) {
+        val channels = channelDao.getAllChannels().first()
+        val total = channels.size
+        if (total == 0) return@withContext
+
+        onProgress("Optimizing: 0/$total checked (0 active)...")
+
+        val activeCount = java.util.concurrent.atomic.AtomicInteger(0)
+        val verifiedCount = java.util.concurrent.atomic.AtomicInteger(0)
+        val semaphore = Semaphore(20) // Limit parallel requests to 20 to avoid clogging network
+
+        coroutineScope {
+            channels.map { channel ->
+                async {
+                    semaphore.withPermit {
+                        val active = isChannelActive(channel.url)
+                        val currentVerified = verifiedCount.incrementAndGet()
+                        if (active) {
+                            activeCount.incrementAndGet()
+                        } else {
+                            // Delete inactive channel immediately from DB
+                            channelDao.deleteChannelByUrl(channel.url)
+                        }
+                        if (currentVerified % 5 == 0 || currentVerified == total) {
+                            onProgress("Verifying streams: $currentVerified/$total checked (${activeCount.get()} active)...")
+                        }
+                    }
+                }
+            }.awaitAll()
+        }
+        onProgress("Finished. Saved ${activeCount.get()} active channels.")
+    }
+
     suspend fun syncChannelsFromFile(filePath: String, onProgress: (String) -> Unit): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             Log.d("ChannelRepository", "Syncing channels from local file: $filePath")
@@ -135,14 +168,10 @@ class ChannelRepository(
                 return@withContext Result.failure(Exception("No valid channel entries parsed from this file"))
             }
 
-            // 3. Filter only active channels
-            onProgress("Verifying stream URLs...")
-            val activeChannels = filterActiveChannels(newChannels, onProgress)
-
-            // 4. Clear and write
-            onProgress("Caching verified channels...")
+            // 3. Clear and write ALL parsed channels immediately (Zero waiting time!)
+            onProgress("Caching parsed channels...")
             channelDao.clearAllChannels()
-            channelDao.insertChannels(activeChannels)
+            channelDao.insertChannels(newChannels)
 
             // Save last sync time
             preferenceDao.insertPreference(
@@ -152,7 +181,7 @@ class ChannelRepository(
                 AppPreference("m3u_file_path", filePath)
             )
 
-            Log.d("ChannelRepository", "Synchronized ${activeChannels.size} channels successfully from file")
+            Log.d("ChannelRepository", "Synchronized ${newChannels.size} channels successfully from file")
             return@withContext Result.success(Unit)
         } catch (e: Exception) {
             Log.e("ChannelRepository", "Error syncing channels from file", e)
@@ -188,21 +217,17 @@ class ChannelRepository(
                     return@withContext Result.failure(Exception("No channels found in the parsed playlist"))
                 }
 
-                // 3. Filter only active channels
-                onProgress("Verifying stream URLs...")
-                val activeChannels = filterActiveChannels(newChannels, onProgress)
-
-                // 4. Clear and write
-                onProgress("Caching verified channels...")
+                // 3. Clear and write ALL parsed channels immediately (Zero waiting time!)
+                onProgress("Caching parsed channels...")
                 channelDao.clearAllChannels()
-                channelDao.insertChannels(activeChannels)
+                channelDao.insertChannels(newChannels)
 
                 // Save last sync time
                 preferenceDao.insertPreference(
                     AppPreference("last_sync_time", System.currentTimeMillis().toString())
                 )
 
-                Log.d("ChannelRepository", "Synchronized ${activeChannels.size} channels successfully")
+                Log.d("ChannelRepository", "Synchronized ${newChannels.size} channels successfully")
                 return@withContext Result.success(Unit)
             }
         } catch (e: Exception) {

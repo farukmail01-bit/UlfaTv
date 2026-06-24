@@ -71,6 +71,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _currentScreen = MutableStateFlow("player")
     val currentScreen: StateFlow<String> = _currentScreen.asStateFlow()
 
+    private val _backgroundScanState = MutableStateFlow<String?>(null)
+    val backgroundScanState: StateFlow<String?> = _backgroundScanState.asStateFlow()
+
     fun navigateTo(screen: String) {
         _currentScreen.value = screen
     }
@@ -186,7 +189,28 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun syncChannels() {
+    fun startBackgroundVerification() {
+        viewModelScope.launch {
+            _backgroundScanState.value = "Starting stream check..."
+            repository.verifyAndFilterActiveChannels { progressMsg ->
+                _backgroundScanState.value = progressMsg
+            }
+            // Verify if selected channel was deleted as dead, switch to first valid channel if so
+            val all = repository.allChannels.first()
+            if (all.isNotEmpty()) {
+                val current = _selectedChannel.value
+                if (current != null && !all.any { it.url == current.url }) {
+                    _selectedChannel.value = all.first()
+                }
+            } else {
+                _selectedChannel.value = null
+            }
+            kotlinx.coroutines.delay(4000)
+            _backgroundScanState.value = null
+        }
+    }
+
+    fun syncChannels(triggerBackgroundScan: Boolean = false) {
         viewModelScope.launch {
             _syncState.value = SyncState.Syncing("Downloading Playlist...")
             val result = repository.syncChannels(_playlistUrlState.value) { progressMsg ->
@@ -203,13 +227,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         _selectedChannel.value = all.first()
                     }
                 }
+
+                if (triggerBackgroundScan) {
+                    startBackgroundVerification()
+                }
             }.onFailure { exception ->
                 _syncState.value = SyncState.Error(exception.localizedMessage ?: "Sync configuration error")
             }
         }
     }
 
-    fun syncChannelsFromFile(filePath: String) {
+    fun syncChannelsFromFile(filePath: String, triggerBackgroundScan: Boolean = false) {
         viewModelScope.launch {
             _syncState.value = SyncState.Syncing("Reading File...")
             saveM3uFilePath(filePath)
@@ -226,6 +254,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     if (all.isNotEmpty()) {
                         _selectedChannel.value = all.first()
                     }
+                }
+
+                if (triggerBackgroundScan) {
+                    startBackgroundVerification()
                 }
             }.onFailure { exception ->
                 _syncState.value = SyncState.Error(exception.localizedMessage ?: "File sync error")
