@@ -122,8 +122,14 @@ fun VideoPlayer(
             }
         }
 
+        val playerContext = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            context.createAttributionContext("audio_playback")
+        } else {
+            context
+        }
+
         // 2. Configure video bounds matching user quality settings
-        val baseTrackParams = TrackSelectionParameters.Builder(context)
+        val baseTrackParams = TrackSelectionParameters.Builder(playerContext)
         val trackParams = when (videoQuality) {
             "low" -> baseTrackParams.setMaxVideoSize(426, 240).build()
             "medium" -> baseTrackParams.setMaxVideoSize(854, 480).build()
@@ -136,7 +142,7 @@ fun VideoPlayer(
             .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MOVIE)
             .build()
 
-        val player = ExoPlayer.Builder(context)
+        val player = ExoPlayer.Builder(playerContext)
             .setLoadControl(loadControl)
             .setAudioAttributes(audioAttributes, true)
             .build()
