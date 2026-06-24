@@ -1,0 +1,6 @@
+{
+  "name": "Ulfa TV",
+  "description": "Live Android TV streaming app featuring M3U playlist integration, responsive D-Pad remote navigation, offline smart caching, categories, and custom buffer controls.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

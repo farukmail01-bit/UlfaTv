@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- "Ulfa" letters in clean bold flat white Arial-like stroke -->
+    <!-- U -->
+    <path
+        android:pathData="M 22,46 L 22,60 A 4,4 0 0,0 30,60 L 30,46"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4"
+        android:strokeLineCap="butt"
+        android:strokeLineJoin="miter" />
+
+    <!-- l -->
+    <path
+        android:pathData="M 35,43 L 35,64"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4"
+        android:strokeLineCap="butt"
+        android:strokeLineJoin="miter" />
+
+    <!-- f -->
+    <path
+        android:pathData="M 45,46 A 4,4 0 0,0 41,50 L 41,64 M 37,52 L 44,52"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4"
+        android:strokeLineCap="butt"
+        android:strokeLineJoin="miter" />
+
+    <!-- a -->
+    <!-- Loop -->
+    <path
+        android:pathData="M 49,58 A 4,4 0 1,0 57,58 A 4,4 0 1,0 49,58"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3.5"
+        android:fillColor="@android:color/transparent"
+        android:strokeLineCap="butt"
+        android:strokeLineJoin="miter" />
+    <!-- Stem -->
+    <path
+        android:pathData="M 57,51 L 57,64"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3.5"
+        android:fillColor="@android:color/transparent"
+        android:strokeLineCap="butt"
+        android:strokeLineJoin="miter" />
+
+    <!-- "TV" letters in bold vibrant flat red Arial-like stroke -->
+    <!-- T -->
+    <path
+        android:pathData="M 62,46 L 72,46 M 67,46 L 67,64"
+        android:strokeColor="#FFFF1744"
+        android:strokeWidth="4"
+        android:strokeLineCap="butt"
+        android:strokeLineJoin="miter" />
+
+    <!-- V -->
+    <path
+        android:pathData="M 76,46 L 81,64 L 86,46"
+        android:strokeColor="#FFFF1744"
+        android:strokeWidth="4"
+        android:strokeLineCap="butt"
+        android:strokeLineJoin="miter" />
+
+</vector>
