@@ -32,6 +32,8 @@ import com.example.ui.MainViewModel
 import com.example.ui.screens.PlayerScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.theme.MyApplicationTheme
+import androidx.compose.ui.platform.LocalContext
+import com.example.ui.components.SafeAttributionContext
 
 class MainActivity : ComponentActivity() {
     private lateinit var viewModel: MainViewModel
@@ -93,50 +95,53 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         
         setContent {
-            viewModel = viewModel()
-            val themeMode by viewModel.themeMode.collectAsState()
-            
-            val isDarkTheme = when (themeMode) {
-                "light" -> false
-                else -> true // default is "dark" mode for elegant cinema TV design
-            }
+            val safeContext = SafeAttributionContext(LocalContext.current)
+            CompositionLocalProvider(LocalContext provides safeContext) {
+                viewModel = viewModel()
+                val themeMode by viewModel.themeMode.collectAsState()
+                
+                val isDarkTheme = when (themeMode) {
+                    "light" -> false
+                    else -> true // default is "dark" mode for elegant cinema TV design
+                }
 
-            MyApplicationTheme(darkTheme = isDarkTheme) {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    val currentScreen by viewModel.currentScreen.collectAsState()
+                MyApplicationTheme(darkTheme = isDarkTheme) {
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        color = MaterialTheme.colorScheme.background
+                    ) {
+                        val currentScreen by viewModel.currentScreen.collectAsState()
 
-                    AnimatedContent(
-                        targetState = currentScreen,
-                        transitionSpec = {
-                            if (targetState == "settings") {
-                                (slideInHorizontally { width -> width } + fadeIn()).togetherWith(
-                                    slideOutHorizontally { width -> -width } + fadeOut()
-                                )
-                            } else {
-                                (slideInHorizontally { width -> -width } + fadeIn()).togetherWith(
-                                    slideOutHorizontally { width -> width } + fadeOut()
-                                )
-                            }
-                        },
-                        label = "screen_transition"
-                    ) { screen ->
-                        when (screen) {
-                            "player" -> {
-                                PlayerScreen(
-                                    viewModel = viewModel,
-                                    onNavigateToSettings = { viewModel.navigateTo("settings") },
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            }
-                            "settings" -> {
-                                SettingsScreen(
-                                    viewModel = viewModel,
-                                    onBack = { viewModel.navigateTo("player") },
-                                    modifier = Modifier.fillMaxSize()
-                                )
+                        AnimatedContent(
+                            targetState = currentScreen,
+                            transitionSpec = {
+                                if (targetState == "settings") {
+                                    (slideInHorizontally { width -> width } + fadeIn()).togetherWith(
+                                        slideOutHorizontally { width -> -width } + fadeOut()
+                                    )
+                                } else {
+                                    (slideInHorizontally { width -> -width } + fadeIn()).togetherWith(
+                                        slideOutHorizontally { width -> width } + fadeOut()
+                                    )
+                                }
+                            },
+                            label = "screen_transition"
+                        ) { screen ->
+                            when (screen) {
+                                "player" -> {
+                                    PlayerScreen(
+                                        viewModel = viewModel,
+                                        onNavigateToSettings = { viewModel.navigateTo("settings") },
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
+                                "settings" -> {
+                                    SettingsScreen(
+                                        viewModel = viewModel,
+                                        onBack = { viewModel.navigateTo("player") },
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
                             }
                         }
                     }

@@ -80,7 +80,7 @@ fun VideoPlayer(
     isFullscreen: Boolean = false,
     onToggleFullscreen: () -> Unit = {}
 ) {
-    val context = LocalContext.current
+    val context = SafeAttributionContext(LocalContext.current)
     val coroutineScope = rememberCoroutineScope()
 
     // Collect playback configurations from viewmodel
