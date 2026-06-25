@@ -142,7 +142,12 @@ fun VideoPlayer(
             .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MOVIE)
             .build()
 
-        val player = ExoPlayer.Builder(context.applicationContext)
+        val playerContext = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            context.applicationContext.createAttributionContext("default")
+        } else {
+            context.applicationContext
+        }
+        val player = ExoPlayer.Builder(playerContext)
             .setLoadControl(loadControl)
             .setAudioAttributes(audioAttributes, true)
             .build()

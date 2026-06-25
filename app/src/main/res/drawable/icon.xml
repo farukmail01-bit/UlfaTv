@@ -1,98 +1,48 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="512dp"
-    android:height="512dp"
-    android:viewportWidth="512"
-    android:viewportHeight="512">
+    android:height="200dp"
+    android:viewportWidth="680"
+    android:viewportHeight="200">
 
-    <!-- Dark Charcoal Background -->
-    <path
-        android:fillColor="#121212"
-        android:pathData="M0,0 H512 V512 H0 Z" />
-
-    <!-- Left Antenna Line -->
+    <!-- Ulfa (White) -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M233,121 L253,144 H259 L239,121 Z" />
+        android:pathData="M50,155 
+            Q50,155 50,155" />
 
-    <!-- Left Antenna Tip -->
+    <!-- Using font-based text is not supported in Vector Drawable -->
+    <!-- Below are approximate Arial Bold paths for UlfaTV -->
+
+    <!-- U -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M233,118 A 3,3 0 1 0 233,124 A 3,3 0 1 0 233,118 Z" />
+        android:pathData="M50,25 L50,110 Q50,155 80,155 Q110,155 110,110 L110,25 L95,25 L95,110 Q95,140 80,140 Q65,140 65,110 L65,25 Z" />
 
-    <!-- Right Antenna Line -->
+    <!-- l -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M279,121 L259,144 H253 L273,121 Z" />
+        android:pathData="M120,25 L120,155 L135,155 L135,25 Z" />
 
-    <!-- Right Antenna Tip -->
+    <!-- f -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M279,118 A 3,3 0 1 0 279,124 A 3,3 0 1 0 279,118 Z" />
+        android:pathData="M145,155 L145,65 Q145,25 175,25 L190,25 L190,38 L178,38 Q160,38 160,58 L160,65 L190,65 L190,78 L160,78 L160,155 Z" />
 
-    <!-- TV Outer Frame Body -->
+    <!-- a -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M195,100 Q195,70 220,70 Q245,70 245,100 L245,155 L230,155 L230,148 Q223,157 210,157 Q195,157 195,140 Q195,125 215,122 L230,120 L230,100 Q230,83 220,83 Q210,83 210,100 Z
+                          M215,135 Q205,135 205,141 Q205,147 215,147 Q230,147 230,132 L230,130 Q220,132 215,135 Z" />
+
+    <!-- T (Red) -->
     <path
         android:fillColor="#FF1744"
-        android:pathData="M218,144 H294 A 12,12 0 0 1 306,156 V 198 A 12,12 0 0 1 294,210 H 218 A 12,12 0 0 1 206,198 V 156 A 12,12 0 0 1 218,144 Z" />
+        android:pathData="M255,25 L255,38 L283,38 L283,155 L298,155 L298,38 L326,38 L326,25 Z" />
 
-    <!-- TV Stand Stem -->
+    <!-- V (Red) -->
     <path
         android:fillColor="#FF1744"
-        android:pathData="M251.5,210 H260.5 V217 H251.5 Z" />
-
-    <!-- TV Stand Base -->
-    <path
-        android:fillColor="#FF1744"
-        android:pathData="M239,217 H273 V222 H239 Z" />
-
-    <!-- Play Button inside TV Screen -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M248,167 L268,177 L248,187 Z" />
-
-    <!-- ================= LETTER 'U' ================= -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M121,260 V297.5 A 22.5,22.5 0 0 0 166,297.5 V260 Z" />
-    <path
-        android:fillColor="#121212"
-        android:pathData="M132,260 V297.5 A 11.5,11.5 0 0 0 155,297.5 V260 Z" />
-
-    <!-- ================= LETTER 'l' ================= -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M175,245 H186 V320 H175 Z" />
-
-    <!-- ================= LETTER 'f' ================= -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M202,240 H192 A 12,12 0 0 0 180,252 V320 H191 V263 A 3,3 0 0 1 194,260 H202 Z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M172,270 H202 V279 H172 Z" />
-
-    <!-- ================= LETTER 'a' ================= -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M256,275 H267 V320 H256 Z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M242.5,279.5 A 20.5,20.5 0 1 0 242.5,320.5 A 20.5,20.5 0 1 0 242.5,279.5 Z" />
-    <path
-        android:fillColor="#121212"
-        android:pathData="M242.5,290.5 A 9.5,9.5 0 1 1 242.5,309.5 A 9.5,9.5 0 1 1 242.5,290.5 Z" />
-
-    <!-- ================= LETTER 'T' ================= -->
-    <path
-        android:fillColor="#FF1744"
-        android:pathData="M278,260 H330 V272 H278 Z" />
-    <path
-        android:fillColor="#FF1744"
-        android:pathData="M298,272 H310 V320 H298 Z" />
-
-    <!-- ================= LETTER 'V' ================= -->
-    <path
-        android:fillColor="#FF1744"
-        android:pathData="M338,260 H351.5 L364,302 L376.5,260 H390 L370.5,320 H357.5 Z" />
+        android:pathData="M330,25 L358,155 L368,155 L396,25 L380,25 L363,118 L346,25 Z" />
 
 </vector>
