@@ -109,12 +109,7 @@ fun VideoPlayer(
 
     // Initialize ExoPlayer
     DisposableEffect(channel.url) {
-        val playerContext = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-            context.applicationContext.createAttributionContext("default")
-        } else {
-            context.applicationContext
-        }
-        val exoPlayer = ExoPlayer.Builder(playerContext).build().apply {
+        val exoPlayer = ExoPlayer.Builder(context.applicationContext).build().apply {
             val mediaItem = if (channel.url.contains(".m3u8")) {
                 MediaItem.Builder()
                     .setUri(channel.url)
