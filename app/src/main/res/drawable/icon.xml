@@ -1,48 +1,46 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="512dp"
-    android:height="200dp"
-    android:viewportWidth="680"
-    android:viewportHeight="200">
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="512"
+    android:viewportHeight="512">
 
-    <!-- Ulfa (White) -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M50,155 
-            Q50,155 50,155" />
+    <!-- Center and scale the horizontal logo to fit perfectly in the 108dp square canvas without any stretching -->
+    <group
+        android:scaleX="1.35"
+        android:scaleY="0.75"
+        android:translateX="-45"
+        android:translateY="188">
 
-    <!-- Using font-based text is not supported in Vector Drawable -->
-    <!-- Below are approximate Arial Bold paths for UlfaTV -->
+        <!-- U -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M50,25 L50,110 Q50,155 80,155 Q110,155 110,110 L110,25 L95,25 L95,110 Q95,140 80,140 Q65,140 65,110 L65,25 Z" />
 
-    <!-- U -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M50,25 L50,110 Q50,155 80,155 Q110,155 110,110 L110,25 L95,25 L95,110 Q95,140 80,140 Q65,140 65,110 L65,25 Z" />
+        <!-- l -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M120,25 L120,155 L135,155 L135,25 Z" />
 
-    <!-- l -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M120,25 L120,155 L135,155 L135,25 Z" />
+        <!-- f -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M145,155 L145,65 Q145,25 175,25 L190,25 L190,38 L178,38 Q160,38 160,58 L160,65 L190,65 L190,78 L160,78 L160,155 Z" />
 
-    <!-- f -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M145,155 L145,65 Q145,25 175,25 L190,25 L190,38 L178,38 Q160,38 160,58 L160,65 L190,65 L190,78 L160,78 L160,155 Z" />
+        <!-- a -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M195,100 Q195,70 220,70 Q245,70 245,100 L245,155 L230,155 L230,148 Q223,157 210,157 Q195,157 195,140 Q195,125 215,122 L230,120 L230,100 Q230,83 220,83 Q210,83 210,100 Z M215,135 Q205,135 205,141 Q205,147 215,147 Q230,147 230,132 L230,130 Q220,132 215,135 Z" />
 
-    <!-- a -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M195,100 Q195,70 220,70 Q245,70 245,100 L245,155 L230,155 L230,148 Q223,157 210,157 Q195,157 195,140 Q195,125 215,122 L230,120 L230,100 Q230,83 220,83 Q210,83 210,100 Z
-                          M215,135 Q205,135 205,141 Q205,147 215,147 Q230,147 230,132 L230,130 Q220,132 215,135 Z" />
+        <!-- T (Red) -->
+        <path
+            android:fillColor="#FF1744"
+            android:pathData="M255,25 L255,38 L283,38 L283,155 L298,155 L298,38 L326,38 L326,25 Z" />
 
-    <!-- T (Red) -->
-    <path
-        android:fillColor="#FF1744"
-        android:pathData="M255,25 L255,38 L283,38 L283,155 L298,155 L298,38 L326,38 L326,25 Z" />
-
-    <!-- V (Red) -->
-    <path
-        android:fillColor="#FF1744"
-        android:pathData="M330,25 L358,155 L368,155 L396,25 L380,25 L363,118 L346,25 Z" />
+        <!-- V (Red) -->
+        <path
+            android:fillColor="#FF1744"
+            android:pathData="M330,25 L358,155 L368,155 L396,25 L380,25 L363,118 L346,25 Z" />
+    </group>
 
 </vector>

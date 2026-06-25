@@ -19,4 +19,12 @@ class SafeAttributionContext(base: Context) : ContextWrapper(base) {
         // Return null to completely bypass any invalid attribution tag checks (e.g. empty string)
         return null
     }
+
+    override fun createAttributionContext(attributionTag: String?): Context {
+        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            SafeAttributionContext(super.createAttributionContext(null))
+        } else {
+            this
+        }
+    }
 }
