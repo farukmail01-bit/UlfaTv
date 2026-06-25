@@ -311,14 +311,17 @@ fun ChannelMetadataView(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically
     ) {
+        val logoModel = com.example.data.getLogoModel(channel.logoUrl, channel.name)
+        val isLocalLogo = logoModel is Int
         AsyncImage(
-            model = channel.logoUrl ?: "https://images.unsplash.com/photo-1546422904-90eab23c3d7e?w=100",
+            model = logoModel,
             contentDescription = "Logo",
-            contentScale = ContentScale.Crop,
+            contentScale = if (isLocalLogo) ContentScale.Fit else ContentScale.Crop,
             modifier = Modifier
                 .size(42.dp)
                 .clip(RoundedCornerShape(8.dp))
                 .background(Color.DarkGray)
+                .padding(if (isLocalLogo) 4.dp else 0.dp)
         )
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
@@ -517,11 +520,15 @@ fun ChannelsTabScreen(viewModel: TvViewModel) {
                                     .height(100.dp)
                                     .background(Color.DarkGray)
                             ) {
+                                val logoModel = com.example.data.getLogoModel(ch.logoUrl, ch.name)
+                                val isLocalLogo = logoModel is Int
                                 AsyncImage(
-                                    model = ch.logoUrl ?: "https://images.unsplash.com/photo-1546422904-90eab23c3d7e?w=120",
+                                    model = logoModel,
                                     contentDescription = ch.name,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize()
+                                    contentScale = if (isLocalLogo) ContentScale.Fit else ContentScale.Crop,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(if (isLocalLogo) 10.dp else 0.dp)
                                 )
 
                                 // Favorite shortcut badge
@@ -914,13 +921,16 @@ fun HistoryTabScreen(viewModel: TvViewModel) {
                             modifier = Modifier.padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            val logoModel = com.example.data.getLogoModel(history.logoUrl, history.channelName)
+                            val isLocalLogo = logoModel is Int
                             AsyncImage(
-                                model = history.logoUrl ?: "https://images.unsplash.com/photo-1546422904-90eab23c3d7e?w=100",
+                                model = logoModel,
                                 contentDescription = history.channelName,
-                                contentScale = ContentScale.Crop,
+                                contentScale = if (isLocalLogo) ContentScale.Fit else ContentScale.Crop,
                                 modifier = Modifier
                                     .size(36.dp)
                                     .clip(RoundedCornerShape(6.dp))
+                                    .padding(if (isLocalLogo) 4.dp else 0.dp)
                             )
                             Spacer(modifier = Modifier.width(12.dp))
                             Column {

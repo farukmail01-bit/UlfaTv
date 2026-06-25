@@ -28,8 +28,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
@@ -193,13 +196,6 @@ fun PlayerScreen(
                 TopAppBar(
                     title = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Tv,
-                                contentDescription = null,
-                                tint = Color(0xFFFF9800),
-                                modifier = Modifier.size(28.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = buildAnnotatedString {
                                     append("Ulfa")
@@ -280,6 +276,18 @@ fun PlayerScreen(
             modifier = modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                .onPreviewKeyEvent {
+                    lastActivityTime = System.currentTimeMillis()
+                    false
+                }
+                .pointerInput(Unit) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            awaitPointerEvent()
+                            lastActivityTime = System.currentTimeMillis()
+                        }
+                    }
+                }
         ) {
             if (isLandscape) {
                 // Wide TV Screens & Landscape Layout: Split view side-by-side with inactivity auto-hide
@@ -327,23 +335,28 @@ fun PlayerScreen(
                                 .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f))
                                 .border(width = 1.dp, color = Color.White.copy(alpha = 0.08f))
                                 .padding(horizontal = 12.dp, vertical = 6.dp)
+                                .onPreviewKeyEvent {
+                                    lastActivityTime = System.currentTimeMillis()
+                                    false
+                                }
+                                .pointerInput(Unit) {
+                                    awaitPointerEventScope {
+                                        while (true) {
+                                            awaitPointerEvent()
+                                            lastActivityTime = System.currentTimeMillis()
+                                        }
+                                    }
+                                }
                         ) {
                             // Landscape Header with Title, Sync, and Settings for TV & Landscape viewing
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(bottom = 8.dp),
+                                    .padding(bottom = 5.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Default.Tv,
-                                        contentDescription = null,
-                                        tint = Color(0xFFFF9800),
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
                                     Text(
                                         text = buildAnnotatedString {
                                             append("Ulfa")
@@ -464,6 +477,9 @@ fun PlayerScreen(
                                 onCollapseSidebar = {
                                     viewModel.setSidebarVisible(false)
                                     lastActivityTime = System.currentTimeMillis()
+                                },
+                                onActivity = {
+                                    lastActivityTime = System.currentTimeMillis()
                                 }
                             )
                         }
@@ -512,11 +528,15 @@ fun PlayerScreen(
                                             contentAlignment = Alignment.Center
                                         ) {
                                             if (!channel.logoUrl.isNullOrEmpty()) {
-                                                SubcomposeAsyncImage(
-                                                    model = channel.logoUrl,
-                                                    contentDescription = null,
-                                                    contentScale = ContentScale.Fit,
-                                                    modifier = Modifier.fillMaxSize(),
+                                                    val logoModel = com.example.data.getLogoModel(channel.logoUrl, channel.name)
+                                                    val isLocalLogo = logoModel is Int
+                                                    SubcomposeAsyncImage(
+                                                        model = logoModel,
+                                                        contentDescription = null,
+                                                        contentScale = ContentScale.Fit,
+                                                        modifier = Modifier
+                                                            .fillMaxSize()
+                                                            .padding(if (isLocalLogo) 4.dp else 2.dp),
                                                     error = {
                                                         ChannelLetterPlaceholder(name = channel.name, modifier = Modifier.fillMaxSize())
                                                      }
@@ -717,7 +737,8 @@ fun ColumnScope.ChannelsVerticalListing(
     onSelect: (LiveChannel) -> Unit,
     onToggleFavorite: (LiveChannel) -> Unit,
     onSyncTrigger: () -> Unit,
-    onCollapseSidebar: () -> Unit = {}
+    onCollapseSidebar: () -> Unit = {},
+    onActivity: () -> Unit = {}
 ) {
     if (channels.isEmpty()) {
         Box(
@@ -784,6 +805,11 @@ fun ColumnScope.ChannelsVerticalListing(
                     onToggleFavorite = { onToggleFavorite(channel) },
                     modifier = Modifier
                         .focusRequester(itemRequester)
+                        .onFocusChanged { state ->
+                            if (state.isFocused) {
+                                onActivity()
+                            }
+                        }
                         .onKeyEvent { keyEvent ->
                             if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
                                 when (keyEvent.nativeKeyEvent.keyCode) {

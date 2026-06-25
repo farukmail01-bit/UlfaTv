@@ -2,6 +2,16 @@ package com.example.data
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import com.example.R
+
+fun getLogoModel(logoUrl: String?, channelName: String): Any {
+    val lowerUrl = logoUrl?.lowercase() ?: ""
+    val lowerName = channelName.lowercase()
+    if (lowerUrl.contains("ulfa") || lowerUrl.contains("icon") || lowerName.contains("ulfa")) {
+        return R.drawable.icon
+    }
+    return logoUrl ?: "https://images.unsplash.com/photo-1546422904-90eab23c3d7e?w=100"
+}
 
 @Entity(tableName = "channels")
 data class Channel(

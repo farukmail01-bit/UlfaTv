@@ -172,19 +172,19 @@ fun ChannelItem(
                     .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
             ) {
-                if (!channel.logoUrl.isNullOrEmpty()) {
-                    SubcomposeAsyncImage(
-                        model = channel.logoUrl,
-                        contentDescription = "${channel.name} logo",
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier.fillMaxSize(),
-                        error = {
-                            ChannelLetterPlaceholder(name = channel.name, modifier = Modifier.fillMaxSize())
-                        }
-                    )
-                } else {
-                    ChannelLetterPlaceholder(name = channel.name, modifier = Modifier.fillMaxSize())
-                }
+                val logoModel = com.example.data.getLogoModel(channel.logoUrl, channel.name)
+                val isLocalLogo = logoModel is Int
+                SubcomposeAsyncImage(
+                    model = logoModel,
+                    contentDescription = "${channel.name} logo",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(if (isLocalLogo) 6.dp else 4.dp),
+                    error = {
+                        ChannelLetterPlaceholder(name = channel.name, modifier = Modifier.fillMaxSize())
+                    }
+                )
             }
 
             Spacer(modifier = Modifier.width(12.dp))

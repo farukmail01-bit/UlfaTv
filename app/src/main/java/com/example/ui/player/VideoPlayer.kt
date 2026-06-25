@@ -46,6 +46,7 @@ import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.input.pointer.pointerInput
 import kotlinx.coroutines.delay
 
@@ -363,71 +364,74 @@ fun VideoPlayer(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    // 1. Drag gestures for Swipes (Horizontal left/right and Vertical up/down)
-                    .pointerInput(Unit) {
-                        var totalDragX = 0f
-                        var totalDragY = 0f
-                        detectDragGestures(
-                            onDragStart = {
-                                totalDragX = 0f
-                                totalDragY = 0f
-                            },
-                            onDragEnd = {
-                                val absX = kotlin.math.abs(totalDragX)
-                                val absY = kotlin.math.abs(totalDragY)
-                                if (absX > absY) {
-                                    if (absX > 80f) {
-                                        if (totalDragX < 0) {
-                                            onSwipeLeft?.invoke()
+                    .pointerInput(resizeMode) {
+                        awaitPointerEventScope {
+                            var lastTapTime = 0L
+                            while (true) {
+                                val down = awaitFirstDown(requireUnconsumed = false)
+                                val startTime = System.currentTimeMillis()
+                                val startPos = down.position
+                                var totalDragX = 0f
+                                var totalDragY = 0f
+                                var isDrag = false
+                                var isMultiTouch = false
+                                
+                                do {
+                                    val event = awaitPointerEvent()
+                                    isMultiTouch = isMultiTouch || event.changes.size > 1
+                                    
+                                    val dragChange = event.changes.firstOrNull { it.pressed }
+                                    if (dragChange != null) {
+                                        val currentPos = dragChange.position
+                                        totalDragX = currentPos.x - startPos.x
+                                        totalDragY = currentPos.y - startPos.y
+                                        
+                                        if (kotlin.math.abs(totalDragX) > 30f || kotlin.math.abs(totalDragY) > 30f) {
+                                            isDrag = true
+                                        }
+                                        dragChange.consume()
+                                    }
+                                } while (event.changes.any { it.pressed })
+                                
+                                val duration = System.currentTimeMillis() - startTime
+                                
+                                if (!isMultiTouch) {
+                                    if (isDrag) {
+                                        // Swipe detected
+                                        val absX = kotlin.math.abs(totalDragX)
+                                        val absY = kotlin.math.abs(totalDragY)
+                                        if (absX > absY) {
+                                            if (absX > 60f) {
+                                                if (totalDragX < 0) {
+                                                    onSwipeLeft?.invoke()
+                                                } else {
+                                                    onSwipeRight?.invoke()
+                                                }
+                                            }
                                         } else {
-                                            onSwipeRight?.invoke()
+                                            if (absY > 60f) {
+                                                if (totalDragY < 0) {
+                                                    onNextChannel()
+                                                } else {
+                                                    onPreviousChannel()
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        // Tap or double tap
+                                        val clickTime = System.currentTimeMillis()
+                                        if (clickTime - lastTapTime < 300) {
+                                            // Double tap to zoom
+                                            val newMode = if (resizeMode == 0) 3 else 0
+                                            onResizeModeChange(newMode)
+                                            zoomFeedbackMessage = if (newMode == 3) "Zoom to Fill" else "Fit to Screen"
+                                            showZoomFeedback = true
+                                            lastTapTime = 0L // reset
+                                        } else {
+                                            lastTapTime = clickTime
+                                            onTap?.invoke()
                                         }
                                     }
-                                } else {
-                                    if (absY > 80f) {
-                                        if (totalDragY < 0) {
-                                            onNextChannel()
-                                        } else {
-                                            onPreviousChannel()
-                                        }
-                                    }
-                                }
-                            },
-                            onDrag = { change, dragAmount ->
-                                change.consume()
-                                totalDragX += dragAmount.x
-                                totalDragY += dragAmount.y
-                            }
-                        )
-                    }
-                    // 2. Single tap to toggle sidebar / channel list, double tap to toggle zoom
-                    .pointerInput(resizeMode) {
-                        detectTapGestures(
-                            onTap = {
-                                onTap?.invoke()
-                            },
-                            onDoubleTap = {
-                                val newMode = if (resizeMode == 0) 3 else 0
-                                onResizeModeChange(newMode)
-                                zoomFeedbackMessage = if (newMode == 3) "Zoom to Fill" else "Fit to Screen"
-                                showZoomFeedback = true
-                            }
-                        )
-                    }
-                    // 3. YouTube-like pinch to zoom
-                    .pointerInput(resizeMode) {
-                        detectTransformGestures { _, _, zoom, _ ->
-                            if (zoom > 1.05f) {
-                                if (resizeMode != 3) {
-                                    onResizeModeChange(3)
-                                    zoomFeedbackMessage = "Zoom to Fill"
-                                    showZoomFeedback = true
-                                }
-                            } else if (zoom < 0.95f) {
-                                if (resizeMode != 0) {
-                                    onResizeModeChange(0)
-                                    zoomFeedbackMessage = "Fit to Screen"
-                                    showZoomFeedback = true
                                 }
                             }
                         }
