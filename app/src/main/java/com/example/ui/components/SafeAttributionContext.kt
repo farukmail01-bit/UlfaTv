@@ -16,13 +16,14 @@ class SafeAttributionContext(base: Context) : ContextWrapper(base) {
     }
 
     override fun getAttributionTag(): String? {
-        // Return null to completely bypass any invalid attribution tag checks (e.g. empty string)
-        return null
+        // Return "media" to match the declared attribution tag in the manifest.
+        // This fully satisfies AppOps security/privacy auditing checks.
+        return "media"
     }
 
     override fun createAttributionContext(attributionTag: String?): Context {
         return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-            SafeAttributionContext(super.createAttributionContext(null))
+            SafeAttributionContext(super.createAttributionContext("media"))
         } else {
             this
         }

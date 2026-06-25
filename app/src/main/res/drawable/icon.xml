@@ -7,10 +7,10 @@
 
     <!-- Center and scale the horizontal logo to fit perfectly in the 108dp square canvas without any stretching -->
     <group
-        android:scaleX="1.35"
-        android:scaleY="0.75"
-        android:translateX="-45"
-        android:translateY="188">
+        android:scaleX="1.1"
+        android:scaleY="1.1"
+        android:translateX="11"
+        android:translateY="157">
 
         <!-- U -->
         <path
