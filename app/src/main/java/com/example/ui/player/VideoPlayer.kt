@@ -87,6 +87,12 @@ fun VideoPlayer(
     }
 
     val currentOnNextChannel by rememberUpdatedState(onNextChannel)
+    val currentResizeMode by rememberUpdatedState(resizeMode)
+    val currentOnResizeModeChange by rememberUpdatedState(onResizeModeChange)
+    val currentOnSwipeLeft by rememberUpdatedState(onSwipeLeft)
+    val currentOnSwipeRight by rememberUpdatedState(onSwipeRight)
+    val currentOnTap by rememberUpdatedState(onTap)
+    val currentOnPreviousChannel by rememberUpdatedState(onPreviousChannel)
 
     // Auto-skip unplayable/offline channels gracefully after 3 seconds
     LaunchedEffect(errorMessage) {
@@ -326,7 +332,7 @@ fun VideoPlayer(
                 Text("Select a channel to play", color = Color.White)
             }
         } else {
-            val targetScale = if (resizeMode == 3) 1.3f else 1.0f
+            val targetScale = 1.0f
             val animatedScale by androidx.compose.animation.core.animateFloatAsState(
                 targetValue = targetScale,
                 animationSpec = androidx.compose.animation.core.tween(
@@ -345,7 +351,7 @@ fun VideoPlayer(
                         isFocusable = false
                         isFocusableInTouchMode = false
                         descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
-                        this.resizeMode = 0 // RESIZE_MODE_FIT to enable smooth GPU scaling
+                        this.resizeMode = resizeMode
                         layoutParams = FrameLayout.LayoutParams(
                             ViewGroup.LayoutParams.MATCH_PARENT,
                             ViewGroup.LayoutParams.MATCH_PARENT
@@ -354,7 +360,7 @@ fun VideoPlayer(
                 },
                 update = { view ->
                     view.player = exoPlayer
-                    view.resizeMode = 0 // Keep RESIZE_MODE_FIT to prevent sudden layout stutters
+                    view.resizeMode = resizeMode // Set native resize mode: 0 = FIT, 3 = ZOOM, 1 = FILL
                 },
                 modifier = Modifier
                     .fillMaxSize()
@@ -365,7 +371,7 @@ fun VideoPlayer(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .pointerInput(resizeMode) {
+                    .pointerInput(Unit) {
                         awaitPointerEventScope {
                             var lastTapTime = 0L
                             while (true) {
@@ -376,10 +382,46 @@ fun VideoPlayer(
                                 var totalDragY = 0f
                                 var isDrag = false
                                 var isMultiTouch = false
+                                var initialPinchDistance = -1f
+                                var pinchActionTriggered = false
                                 
                                 do {
                                     val event = awaitPointerEvent()
-                                    isMultiTouch = isMultiTouch || event.changes.size > 1
+                                    val activeChanges = event.changes.filter { it.pressed }
+                                    isMultiTouch = isMultiTouch || activeChanges.size > 1
+                                    
+                                    if (activeChanges.size >= 2) {
+                                        val p1 = activeChanges[0].position
+                                        val p2 = activeChanges[1].position
+                                        val dx = p1.x - p2.x
+                                        val dy = p1.y - p2.y
+                                        val currentDistance = kotlin.math.sqrt(dx * dx + dy * dy)
+                                        
+                                        if (initialPinchDistance < 0f) {
+                                            initialPinchDistance = currentDistance
+                                        } else if (!pinchActionTriggered && currentDistance > 0f) {
+                                            val ratio = currentDistance / initialPinchDistance
+                                            if (ratio > 1.15f) {
+                                                // Pinch/sweep out -> Zoom to Fill
+                                                val newMode = 3
+                                                if (currentResizeMode != newMode) {
+                                                    currentOnResizeModeChange(newMode)
+                                                    zoomFeedbackMessage = "Zoom to Fill"
+                                                    showZoomFeedback = true
+                                                }
+                                                pinchActionTriggered = true
+                                            } else if (ratio < 0.85f) {
+                                                // Pinch/sweep in -> Fit to Screen
+                                                val newMode = 0
+                                                if (currentResizeMode != newMode) {
+                                                    currentOnResizeModeChange(newMode)
+                                                    zoomFeedbackMessage = "Fit to Screen"
+                                                    showZoomFeedback = true
+                                                }
+                                                pinchActionTriggered = true
+                                            }
+                                        }
+                                    }
                                     
                                     val dragChange = event.changes.firstOrNull { it.pressed }
                                     if (dragChange != null) {
@@ -404,17 +446,17 @@ fun VideoPlayer(
                                         if (absX > absY) {
                                             if (absX > 60f) {
                                                 if (totalDragX < 0) {
-                                                    onSwipeLeft?.invoke()
+                                                    currentOnSwipeLeft?.invoke()
                                                 } else {
-                                                    onSwipeRight?.invoke()
+                                                    currentOnSwipeRight?.invoke()
                                                 }
                                             }
                                         } else {
                                             if (absY > 60f) {
                                                 if (totalDragY < 0) {
-                                                    onNextChannel()
+                                                    currentOnNextChannel()
                                                 } else {
-                                                    onPreviousChannel()
+                                                    currentOnPreviousChannel()
                                                 }
                                             }
                                         }
@@ -422,15 +464,23 @@ fun VideoPlayer(
                                         // Tap or double tap
                                         val clickTime = System.currentTimeMillis()
                                         if (clickTime - lastTapTime < 300) {
-                                            // Double tap to zoom
-                                            val newMode = if (resizeMode == 0) 3 else 0
-                                            onResizeModeChange(newMode)
-                                            zoomFeedbackMessage = if (newMode == 3) "Zoom to Fill" else "Fit to Screen"
+                                            // Double tap to cycle aspect ratio: Fit -> Zoom -> Fill -> Fit
+                                            val newMode = when (currentResizeMode) {
+                                                0 -> 3 // Zoom to Fill
+                                                3 -> 1 // Stretch to Fill
+                                                else -> 0 // Fit to Screen
+                                            }
+                                            currentOnResizeModeChange(newMode)
+                                            zoomFeedbackMessage = when (newMode) {
+                                                3 -> "Zoom to Fill"
+                                                1 -> "Stretch to Fill"
+                                                else -> "Fit to Screen"
+                                            }
                                             showZoomFeedback = true
                                             lastTapTime = 0L // reset
                                         } else {
                                             lastTapTime = clickTime
-                                            onTap?.invoke()
+                                            currentOnTap?.invoke()
                                         }
                                     }
                                 }

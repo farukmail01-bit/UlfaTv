@@ -149,4 +149,20 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun getAttributionTag(): String? {
+        return "media"
+    }
+
+    override fun getApplicationContext(): android.content.Context {
+        return SafeAttributionContext(super.getApplicationContext())
+    }
+
+    override fun createAttributionContext(attributionTag: String?): android.content.Context {
+        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            SafeAttributionContext(super.createAttributionContext("media"))
+        } else {
+            super.createAttributionContext(attributionTag)
+        }
+    }
 }

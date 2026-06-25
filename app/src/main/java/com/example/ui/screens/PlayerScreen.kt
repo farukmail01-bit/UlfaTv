@@ -225,17 +225,21 @@ fun PlayerScreen(
                             )
                         }
 
-                        // Toggle Aspect Ratio (Zoom to Fill vs Fit to Screen)
+                        // Toggle Aspect Ratio (Fit vs Zoom to Fill vs Stretch to Fill)
                         IconButton(
                             onClick = { 
-                                resizeMode = if (resizeMode == 0) 3 else 0
+                                resizeMode = when (resizeMode) {
+                                    0 -> 3 // Zoom to Fill
+                                    3 -> 1 // Stretch to Fill
+                                    else -> 0 // Fit to Screen
+                                }
                             },
                             modifier = Modifier.testTag("appbar_aspect_ratio_button")
                         ) {
                             Icon(
                                 imageVector = Icons.Default.AspectRatio,
                                 contentDescription = "Toggle Zoom",
-                                tint = if (resizeMode == 3) Color(0xFFFF9800) else MaterialTheme.colorScheme.onSurface
+                                tint = if (resizeMode != 0) Color(0xFFFF9800) else MaterialTheme.colorScheme.onSurface
                             )
                         }
 
@@ -387,14 +391,18 @@ fun PlayerScreen(
                                     }
                                     IconButton(
                                         onClick = { 
-                                            resizeMode = if (resizeMode == 0) 3 else 0
+                                            resizeMode = when (resizeMode) {
+                                                0 -> 3 // Zoom to Fill
+                                                3 -> 1 // Stretch to Fill
+                                                else -> 0 // Fit to Screen
+                                            }
                                         },
                                         modifier = Modifier.size(36.dp).testTag("appbar_aspect_ratio_button_landscape")
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.AspectRatio,
                                             contentDescription = "Toggle Zoom",
-                                            tint = if (resizeMode == 3) Color(0xFFFF9800) else MaterialTheme.colorScheme.onSurface,
+                                            tint = if (resizeMode != 0) Color(0xFFFF9800) else MaterialTheme.colorScheme.onSurface,
                                             modifier = Modifier.size(20.dp)
                                         )
                                     }

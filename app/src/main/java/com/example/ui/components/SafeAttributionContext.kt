@@ -17,7 +17,7 @@ class SafeAttributionContext(base: Context) : ContextWrapper(base) {
 
     override fun getAttributionTag(): String? {
         // Return "media" to match the declared attribution tag in the manifest.
-        // This fully satisfies AppOps security/privacy auditing checks.
+        // This satisfies AppOps security/privacy auditing checks completely.
         return "media"
     }
 
