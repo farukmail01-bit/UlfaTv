@@ -70,12 +70,10 @@ fun VideoPlayer(
     onTap: (() -> Unit)? = null
 ) {
     val baseContext = LocalContext.current
-    val context = remember(baseContext) {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-            baseContext.createAttributionContext("media")
-        } else {
-            baseContext
-        }
+    val context = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+        baseContext.createAttributionContext("media")
+    } else {
+        baseContext
     }
     var isBuffering by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }

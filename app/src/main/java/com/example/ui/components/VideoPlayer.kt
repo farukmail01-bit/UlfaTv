@@ -80,12 +80,10 @@ fun VideoPlayer(
     onToggleFullscreen: () -> Unit = {}
 ) {
     val baseContext = LocalContext.current
-    val context = remember(baseContext) {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-            baseContext.createAttributionContext("media")
-        } else {
-            baseContext
-        }
+    val context = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+        baseContext.createAttributionContext("media")
+    } else {
+        baseContext
     }
     val coroutineScope = rememberCoroutineScope()
 
