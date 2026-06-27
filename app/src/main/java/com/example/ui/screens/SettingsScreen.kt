@@ -36,6 +36,7 @@ fun SettingsScreen(
     androidx.activity.compose.BackHandler(onBack = onBack)
 
     val autoPlay by viewModel.autoPlayEnabled.collectAsState()
+    val dpadSidebarEnabled by viewModel.dpadSidebarControlEnabled.collectAsState()
     val bufferProfile by viewModel.bufferProfile.collectAsState()
     val videoQuality by viewModel.videoQuality.collectAsState()
     val lastSyncTime by viewModel.lastSyncTime.collectAsState()
@@ -82,15 +83,29 @@ fun SettingsScreen(
             
             // 1. General Preferences Card
             SettingsGroupCard(title = "General Preferences") {
-                // Auto Play toggle row
-                SettingsToggleRow(
-                    icon = Icons.Default.PlayArrow,
-                    title = "Auto-Play on Launch",
-                    subtitle = "Automatically resume last or first channel upon app start.",
-                    checked = autoPlay,
-                    onCheckedChange = { viewModel.setAutoPlay(it) },
-                    testTag = "setting_autoplay"
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Auto Play toggle row
+                    SettingsToggleRow(
+                        icon = Icons.Default.PlayArrow,
+                        title = "Auto-Play on Launch",
+                        subtitle = "Automatically resume last or first channel upon app start.",
+                        checked = autoPlay,
+                        onCheckedChange = { viewModel.setAutoPlay(it) },
+                        testTag = "setting_autoplay"
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+
+                    // D-pad control toggle row
+                    SettingsToggleRow(
+                        icon = Icons.Default.Tune,
+                        title = "D-pad Left/Right Sidebar Toggle",
+                        subtitle = "রিমোটের ডানে/বামে বাটনে সাইডবার কন্ট্রোল। বন্ধ থাকলে সহজে চ্যানেল ও সেটিং সিলেক্ট করতে পারবেন এবং শুধুমাত্র ব্যাক (Back) বাটন দিয়ে সাইডবার বন্ধ হবে।",
+                        checked = dpadSidebarEnabled,
+                        onCheckedChange = { viewModel.setDpadSidebarControlEnabled(it) },
+                        testTag = "setting_dpad_sidebar"
+                    )
+                }
             }
 
             // 2. Buffering Preferences Card (for Low Internet / Buffer-Free Experience)

@@ -3,7 +3,6 @@ package com.example.ui.components
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
-import android.media.AudioManager
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.compose.animation.AnimatedVisibility
@@ -80,7 +79,14 @@ fun VideoPlayer(
     isFullscreen: Boolean = false,
     onToggleFullscreen: () -> Unit = {}
 ) {
-    val context = SafeAttributionContext(LocalContext.current)
+    val baseContext = LocalContext.current
+    val context = remember(baseContext) {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            baseContext.createAttributionContext("media")
+        } else {
+            baseContext
+        }
+    }
     val coroutineScope = rememberCoroutineScope()
 
     // Collect playback configurations from viewmodel
@@ -95,10 +101,6 @@ fun VideoPlayer(
     // On-screen overlay controls state
     var showControls by remember { mutableStateOf(false) }
 
-    // AudioManager setup for HUD Volume swipe
-    val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
-    val maxVolume = remember { audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC).toFloat() }
-
     // Auto-hide controls helper
     LaunchedEffect(showControls) {
         if (showControls) {
@@ -109,7 +111,7 @@ fun VideoPlayer(
 
     // Initialize ExoPlayer
     DisposableEffect(channel.url) {
-        val exoPlayer = ExoPlayer.Builder(context.applicationContext).build().apply {
+        val exoPlayer = ExoPlayer.Builder(context).build().apply {
             val mediaItem = if (channel.url.contains(".m3u8")) {
                 MediaItem.Builder()
                     .setUri(channel.url)
@@ -164,9 +166,7 @@ fun VideoPlayer(
                     onDragStart = { offset ->
                         showControls = false
                         // Set start parameters
-                        startVolume = audioManager
-                            .getStreamVolume(AudioManager.STREAM_MUSIC)
-                            .toFloat() / maxVolume
+                        startVolume = player?.volume ?: 1f
 
                         val activity = context.findActivity()
                         val lp = activity?.window?.attributes
@@ -207,12 +207,7 @@ fun VideoPlayer(
                             val newVolPercent = (startVolume + dragPercentY).coerceIn(0f, 1f)
                             startVolume = newVolPercent
 
-                            val newVolIndex = (newVolPercent * maxVolume).toInt()
-                            audioManager.setStreamVolume(
-                                AudioManager.STREAM_MUSIC,
-                                newVolIndex,
-                                0
-                            )
+                            player?.volume = newVolPercent
                             viewModel.showVolumeHud(newVolPercent)
                         }
                     }

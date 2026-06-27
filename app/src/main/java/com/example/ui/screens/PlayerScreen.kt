@@ -82,6 +82,7 @@ fun PlayerScreen(
     val channels by viewModel.uiChannels.collectAsState()
     val bufferProfile by viewModel.bufferProfile.collectAsState()
     val videoQuality by viewModel.videoQuality.collectAsState()
+    val dpadSidebarControlEnabled by viewModel.dpadSidebarControlEnabled.collectAsState()
 
     var resizeMode by remember { mutableStateOf(0) } // 0 = FIT, 3 = ZOOM
 
@@ -158,15 +159,19 @@ fun PlayerScreen(
                 modifier = Modifier.fillMaxSize(),
                 focusRequester = playerFocusRequester,
                 onDpadLeft = {
-                    viewModel.setSidebarVisible(false)
-                    lastActivityTime = System.currentTimeMillis()
+                    if (dpadSidebarControlEnabled) {
+                        viewModel.setSidebarVisible(false)
+                        lastActivityTime = System.currentTimeMillis()
+                    }
                 },
                 onDpadRight = {
-                    viewModel.setSidebarVisible(true)
-                    lastActivityTime = System.currentTimeMillis()
-                    try {
-                        channelListFocusRequester.requestFocus()
-                    } catch (e: Exception) {}
+                    if (dpadSidebarControlEnabled) {
+                        viewModel.setSidebarVisible(true)
+                        lastActivityTime = System.currentTimeMillis()
+                        try {
+                            channelListFocusRequester.requestFocus()
+                        } catch (e: Exception) {}
+                    }
                 },
                 showFocusBorder = isSidebarVisible,
                 onSwipeLeft = {
@@ -488,7 +493,8 @@ fun PlayerScreen(
                                 },
                                 onActivity = {
                                     lastActivityTime = System.currentTimeMillis()
-                                }
+                                },
+                                dpadSidebarControlEnabled = dpadSidebarControlEnabled
                             )
                         }
                     }
@@ -628,7 +634,8 @@ fun PlayerScreen(
                             channelListFocusRequester = channelListFocusRequester,
                             onSelect = { viewModel.selectChannel(it) },
                             onToggleFavorite = { viewModel.toggleFavorite(it) },
-                            onSyncTrigger = { viewModel.syncChannels() }
+                            onSyncTrigger = { viewModel.syncChannels() },
+                            dpadSidebarControlEnabled = dpadSidebarControlEnabled
                         )
                     }
                 }
@@ -746,7 +753,8 @@ fun ColumnScope.ChannelsVerticalListing(
     onToggleFavorite: (LiveChannel) -> Unit,
     onSyncTrigger: () -> Unit,
     onCollapseSidebar: () -> Unit = {},
-    onActivity: () -> Unit = {}
+    onActivity: () -> Unit = {},
+    dpadSidebarControlEnabled: Boolean = false
 ) {
     if (channels.isEmpty()) {
         Box(
@@ -819,7 +827,7 @@ fun ColumnScope.ChannelsVerticalListing(
                             }
                         }
                         .onKeyEvent { keyEvent ->
-                            if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
+                            if (dpadSidebarControlEnabled && keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
                                 when (keyEvent.nativeKeyEvent.keyCode) {
                                     KeyEvent.KEYCODE_DPAD_RIGHT -> {
                                         try {

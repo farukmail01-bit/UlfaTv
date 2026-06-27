@@ -26,7 +26,6 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.platform.LocalContext
-import com.example.ui.components.SafeAttributionContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -70,7 +69,14 @@ fun VideoPlayer(
     onSwipeRight: (() -> Unit)? = null,
     onTap: (() -> Unit)? = null
 ) {
-    val context = SafeAttributionContext(LocalContext.current)
+    val baseContext = LocalContext.current
+    val context = remember(baseContext) {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            baseContext.createAttributionContext("media")
+        } else {
+            baseContext
+        }
+    }
     var isBuffering by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var exoPlayer by remember { mutableStateOf<ExoPlayer?>(null) }
@@ -149,7 +155,7 @@ fun VideoPlayer(
             .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MOVIE)
             .build()
 
-        val player = ExoPlayer.Builder(context.applicationContext)
+        val player = ExoPlayer.Builder(context)
             .setLoadControl(loadControl)
             .setAudioAttributes(audioAttributes, true)
             .build()

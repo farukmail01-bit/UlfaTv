@@ -46,6 +46,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _autoPlayEnabled = MutableStateFlow(true)
     val autoPlayEnabled: StateFlow<Boolean> = _autoPlayEnabled.asStateFlow()
 
+    private val _dpadSidebarControlEnabled = MutableStateFlow(false)
+    val dpadSidebarControlEnabled: StateFlow<Boolean> = _dpadSidebarControlEnabled.asStateFlow()
+
     private val _bufferProfile = MutableStateFlow("stable") // stable, low_latency, low_internet
     val bufferProfile: StateFlow<String> = _bufferProfile.asStateFlow()
 
@@ -260,6 +263,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun loadPreferences() {
         viewModelScope.launch {
             _autoPlayEnabled.value = (preferenceDao.getPreferenceValue("auto_play") ?: "true").toBoolean()
+            _dpadSidebarControlEnabled.value = (preferenceDao.getPreferenceValue("dpad_sidebar_control") ?: "false").toBoolean()
             _bufferProfile.value = preferenceDao.getPreferenceValue("buffer_profile") ?: "stable"
             _videoQuality.value = preferenceDao.getPreferenceValue("video_quality") ?: "auto"
             _themeMode.value = preferenceDao.getPreferenceValue("theme_mode") ?: "dark"
@@ -273,6 +277,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setAutoPlay(enabled: Boolean) {
         _autoPlayEnabled.value = enabled
         savePreference("auto_play", enabled.toString())
+    }
+
+    fun setDpadSidebarControlEnabled(enabled: Boolean) {
+        _dpadSidebarControlEnabled.value = enabled
+        savePreference("dpad_sidebar_control", enabled.toString())
     }
 
     fun setBufferProfile(profile: String) {

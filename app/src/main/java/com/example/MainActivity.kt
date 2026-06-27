@@ -33,7 +33,6 @@ import com.example.ui.screens.PlayerScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.theme.MyApplicationTheme
 import androidx.compose.ui.platform.LocalContext
-import com.example.ui.components.SafeAttributionContext
 
 class MainActivity : ComponentActivity() {
     private lateinit var viewModel: MainViewModel
@@ -45,6 +44,13 @@ class MainActivity : ComponentActivity() {
                 val currentScreen = viewModel.currentScreen.value
                 val isSidebarVisible = viewModel.isSidebarVisible.value
                 
+                if (keyCode == android.view.KeyEvent.KEYCODE_SETTINGS || keyCode == android.view.KeyEvent.KEYCODE_MENU) {
+                    if (currentScreen != "settings") {
+                        viewModel.navigateTo("settings")
+                        return true
+                    }
+                }
+
                 if (currentScreen == "player") {
                     when (keyCode) {
                         android.view.KeyEvent.KEYCODE_PAGE_UP,
@@ -70,13 +76,15 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                         android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                            if (!isSidebarVisible) {
+                            val dpadSidebarEnabled = viewModel.dpadSidebarControlEnabled.value
+                            if (dpadSidebarEnabled && !isSidebarVisible) {
                                 viewModel.setSidebarVisible(true)
                                 return true
                             }
                         }
                         android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
-                            if (isSidebarVisible) {
+                            val dpadSidebarEnabled = viewModel.dpadSidebarControlEnabled.value
+                            if (dpadSidebarEnabled && isSidebarVisible) {
                                 viewModel.setSidebarVisible(false)
                                 return true
                             }
@@ -95,74 +103,55 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         
         setContent {
-            val safeContext = SafeAttributionContext(LocalContext.current)
-            CompositionLocalProvider(LocalContext provides safeContext) {
-                viewModel = viewModel()
-                val themeMode by viewModel.themeMode.collectAsState()
-                
-                val isDarkTheme = when (themeMode) {
-                    "light" -> false
-                    else -> true // default is "dark" mode for elegant cinema TV design
-                }
+            viewModel = viewModel()
+            val themeMode by viewModel.themeMode.collectAsState()
+            
+            val isDarkTheme = when (themeMode) {
+                "light" -> false
+                else -> true // default is "dark" mode for elegant cinema TV design
+            }
 
-                MyApplicationTheme(darkTheme = isDarkTheme) {
-                    Surface(
-                        modifier = Modifier.fillMaxSize(),
-                        color = MaterialTheme.colorScheme.background
-                    ) {
-                        val currentScreen by viewModel.currentScreen.collectAsState()
+            MyApplicationTheme(darkTheme = isDarkTheme) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    val currentScreen by viewModel.currentScreen.collectAsState()
 
-                        AnimatedContent(
-                            targetState = currentScreen,
-                            transitionSpec = {
-                                if (targetState == "settings") {
-                                    (slideInHorizontally { width -> width } + fadeIn()).togetherWith(
-                                        slideOutHorizontally { width -> -width } + fadeOut()
-                                    )
-                                } else {
-                                    (slideInHorizontally { width -> -width } + fadeIn()).togetherWith(
-                                        slideOutHorizontally { width -> width } + fadeOut()
-                                    )
-                                }
-                            },
-                            label = "screen_transition"
-                        ) { screen ->
-                            when (screen) {
-                                "player" -> {
-                                    PlayerScreen(
-                                        viewModel = viewModel,
-                                        onNavigateToSettings = { viewModel.navigateTo("settings") },
-                                        modifier = Modifier.fillMaxSize()
-                                    )
-                                }
-                                "settings" -> {
-                                    SettingsScreen(
-                                        viewModel = viewModel,
-                                        onBack = { viewModel.navigateTo("player") },
-                                        modifier = Modifier.fillMaxSize()
-                                    )
-                                }
+                    AnimatedContent(
+                        targetState = currentScreen,
+                        transitionSpec = {
+                            if (targetState == "settings") {
+                                (slideInHorizontally { width -> width } + fadeIn()).togetherWith(
+                                    slideOutHorizontally { width -> -width } + fadeOut()
+                                )
+                            } else {
+                                (slideInHorizontally { width -> -width } + fadeIn()).togetherWith(
+                                    slideOutHorizontally { width -> width } + fadeOut()
+                                )
+                            }
+                        },
+                        label = "screen_transition"
+                    ) { screen ->
+                        when (screen) {
+                            "player" -> {
+                                PlayerScreen(
+                                    viewModel = viewModel,
+                                    onNavigateToSettings = { viewModel.navigateTo("settings") },
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                            "settings" -> {
+                                SettingsScreen(
+                                    viewModel = viewModel,
+                                    onBack = { viewModel.navigateTo("player") },
+                                    modifier = Modifier.fillMaxSize()
+                                )
                             }
                         }
                     }
                 }
             }
-        }
-    }
-
-    override fun getAttributionTag(): String? {
-        return "media"
-    }
-
-    override fun getApplicationContext(): android.content.Context {
-        return SafeAttributionContext(super.getApplicationContext())
-    }
-
-    override fun createAttributionContext(attributionTag: String?): android.content.Context {
-        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-            SafeAttributionContext(super.createAttributionContext("media"))
-        } else {
-            super.createAttributionContext(attributionTag)
         }
     }
 }
