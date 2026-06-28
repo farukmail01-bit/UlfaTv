@@ -1,6 +1,7 @@
 package com.example.ui.components
 
 import android.app.Activity
+import com.example.util.toAttributedContext
 import android.content.Context
 import android.content.ContextWrapper
 import android.view.ViewGroup
@@ -79,12 +80,7 @@ fun VideoPlayer(
     isFullscreen: Boolean = false,
     onToggleFullscreen: () -> Unit = {}
 ) {
-    val baseContext = LocalContext.current
-    val context = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-        baseContext.createAttributionContext("media")
-    } else {
-        baseContext
-    }
+    val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
     // Collect playback configurations from viewmodel
@@ -95,6 +91,11 @@ fun VideoPlayer(
     var player by remember { mutableStateOf<ExoPlayer?>(null) }
     var isBuffering by remember { mutableStateOf(true) }
     var playbackError by remember { mutableStateOf<String?>(null) }
+    var retryCount by remember { mutableStateOf(0) }
+
+    LaunchedEffect(channel.url) {
+        retryCount = 0
+    }
 
     // On-screen overlay controls state
     var showControls by remember { mutableStateOf(false) }
@@ -109,7 +110,8 @@ fun VideoPlayer(
 
     // Initialize ExoPlayer
     DisposableEffect(channel.url) {
-        val exoPlayer = ExoPlayer.Builder(context).build().apply {
+        val playerContext = context.toAttributedContext("media")
+        val exoPlayer = ExoPlayer.Builder(playerContext).build().apply {
             val mediaItem = if (channel.url.contains(".m3u8")) {
                 MediaItem.Builder()
                     .setUri(channel.url)
@@ -127,12 +129,33 @@ fun VideoPlayer(
                     isBuffering = state == Player.STATE_BUFFERING
                     if (state == Player.STATE_READY) {
                         playbackError = null
+                        retryCount = 0 // Successful playback, reset the retry counter!
                     }
                 }
 
                 override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                    isBuffering = false
-                    playbackError = "Playback failed: ${error.localizedMessage ?: "Codec/Network error"}"
+                    if (error.errorCode == androidx.media3.common.PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
+                        android.util.Log.d("VideoPlayerComponent", "Behind live window exception. Seeking to default position and preparing...")
+                        seekToDefaultPosition()
+                        prepare()
+                        play()
+                        return
+                    }
+
+                    if (retryCount < 5) {
+                        retryCount++
+                        val retryDelay = (1500 + (retryCount - 1) * 1000).toLong().coerceIn(1500L, 5000L)
+                        android.util.Log.d("VideoPlayerComponent", "Transient playback error, auto-retrying... Attempt $retryCount/5 in ${retryDelay}ms")
+                        isBuffering = true
+                        coroutineScope.launch {
+                            delay(retryDelay)
+                            prepare()
+                            play()
+                        }
+                    } else {
+                        isBuffering = false
+                        playbackError = "Playback failed: ${error.localizedMessage ?: "Codec/Network error"}"
+                    }
                 }
             })
         }
@@ -224,7 +247,7 @@ fun VideoPlayer(
         // AndroidView rendering Media3 PlayerView
         AndroidView(
             factory = { ctx ->
-                PlayerView(ctx).apply {
+                PlayerView(ctx.toAttributedContext("media")).apply {
                     useController = false // Use our elegant custom controls
                     keepScreenOn = true
                     layoutParams = FrameLayout.LayoutParams(

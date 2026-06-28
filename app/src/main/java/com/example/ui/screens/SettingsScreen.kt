@@ -93,18 +93,6 @@ fun SettingsScreen(
                         onCheckedChange = { viewModel.setAutoPlay(it) },
                         testTag = "setting_autoplay"
                     )
-
-                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
-
-                    // D-pad control toggle row
-                    SettingsToggleRow(
-                        icon = Icons.Default.Tune,
-                        title = "D-pad Left/Right Sidebar Toggle",
-                        subtitle = "রিমোটের ডানে/বামে বাটনে সাইডবার কন্ট্রোল। বন্ধ থাকলে সহজে চ্যানেল ও সেটিং সিলেক্ট করতে পারবেন এবং শুধুমাত্র ব্যাক (Back) বাটন দিয়ে সাইডবার বন্ধ হবে।",
-                        checked = dpadSidebarEnabled,
-                        onCheckedChange = { viewModel.setDpadSidebarControlEnabled(it) },
-                        testTag = "setting_dpad_sidebar"
-                    )
                 }
             }
 
@@ -361,19 +349,14 @@ fun SettingsScreen(
                         action = "Zap to Next / Previous Channel instantly"
                     )
                     RemoteGuideItem(
-                        icon = Icons.Default.ArrowBack,
-                        keys = "[◀]  D-Pad LEFT",
-                        action = "Hide channels list sidebar for Full-Stream display"
-                    )
-                    RemoteGuideItem(
-                        icon = Icons.Default.ArrowForward,
-                        keys = "[▶]  D-Pad RIGHT",
-                        action = "Show channels list sidebar to browse while playing"
-                    )
-                    RemoteGuideItem(
                         icon = Icons.Default.CheckCircle,
                         keys = "[ENTER] or [DPAD CENTER]",
                         action = "Toggle channels list sidebar (Show / Hide)"
+                    )
+                    RemoteGuideItem(
+                        icon = Icons.Default.Settings,
+                        keys = "[SETTINGS] or [MENU]",
+                        action = "Open Settings screen instantly from anywhere"
                     )
                 }
             }

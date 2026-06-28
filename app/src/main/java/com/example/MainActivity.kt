@@ -96,6 +96,19 @@ class MainActivity : ComponentActivity() {
         return super.dispatchKeyEvent(event)
     }
 
+    override fun getAttributionTag(): String? {
+        return "media"
+    }
+
+    override fun getApplicationContext(): android.content.Context {
+        val baseAppContext = super.getApplicationContext()
+        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            baseAppContext.createAttributionContext("media")
+        } else {
+            baseAppContext
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         

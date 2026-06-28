@@ -1,6 +1,7 @@
 package com.example.ui.player
 
 import android.view.KeyEvent
+import com.example.util.toAttributedContext
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.annotation.OptIn
@@ -14,7 +15,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AspectRatio
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -49,6 +55,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.input.pointer.pointerInput
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -69,16 +76,21 @@ fun VideoPlayer(
     onSwipeRight: (() -> Unit)? = null,
     onTap: (() -> Unit)? = null
 ) {
-    val baseContext = LocalContext.current
-    val context = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-        baseContext.createAttributionContext("media")
-    } else {
-        baseContext
-    }
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     var isBuffering by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var exoPlayer by remember { mutableStateOf<ExoPlayer?>(null) }
     var isFocused by remember { mutableStateOf(false) }
+
+    var retryCount by remember { mutableStateOf(0) }
+    var retryTrigger by remember { mutableStateOf(0) }
+    var countdownSeconds by remember { mutableStateOf(8) }
+
+    // Reset retry counter whenever the stream changes
+    LaunchedEffect(streamUrl) {
+        retryCount = 0
+    }
 
     var zoomFeedbackMessage by remember { mutableStateOf<String?>(null) }
     var showZoomFeedback by remember { mutableStateOf(false) }
@@ -98,10 +110,14 @@ fun VideoPlayer(
     val currentOnTap by rememberUpdatedState(onTap)
     val currentOnPreviousChannel by rememberUpdatedState(onPreviousChannel)
 
-    // Auto-skip unplayable/offline channels gracefully after 3 seconds
+    // Handle auto-skip countdown timer for offline channels
     LaunchedEffect(errorMessage) {
         if (errorMessage != null) {
-            delay(3000)
+            countdownSeconds = 8
+            while (countdownSeconds > 0) {
+                delay(1000)
+                countdownSeconds--
+            }
             errorMessage = null
             currentOnNextChannel()
         }
@@ -140,7 +156,9 @@ fun VideoPlayer(
         }
 
         // 2. Configure video bounds matching user quality settings
-        val baseTrackParams = TrackSelectionParameters.Builder(context)
+        val playerContext = context.toAttributedContext("media")
+
+        val baseTrackParams = TrackSelectionParameters.Builder(playerContext)
         val trackParams = when (videoQuality) {
             "low" -> baseTrackParams.setMaxVideoSize(426, 240).build()
             "medium" -> baseTrackParams.setMaxVideoSize(854, 480).build()
@@ -153,7 +171,7 @@ fun VideoPlayer(
             .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MOVIE)
             .build()
 
-        val player = ExoPlayer.Builder(context)
+        val player = ExoPlayer.Builder(playerContext)
             .setLoadControl(loadControl)
             .setAudioAttributes(audioAttributes, true)
             .build()
@@ -168,22 +186,43 @@ fun VideoPlayer(
                 isBuffering = state == Player.STATE_BUFFERING
                 if (state == Player.STATE_READY) {
                     errorMessage = null
+                    retryCount = 0 // Successful playback, reset the retry counter!
                 }
             }
 
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                 android.util.Log.e("VideoPlayer", "ExoPlayer playback error: ${error.message}", error)
-                val errorCodeName = error.errorCodeName
-                val isNetworkError = errorCodeName.contains("NETWORK") || errorCodeName.contains("DNS") || errorCodeName.contains("TIMEOUT")
                 
-                val baseMsg = if (isNetworkError) {
-                    "This channel is Geo-Blocked or restricted to Local ISP Networks (BDIX).\n\nThe Web Preview Emulator cannot play it because it runs on Global Cloud Servers."
-                } else {
-                    "Stream Error: ${error.message ?: "Unknown Error"}\nCode: ${errorCodeName}"
+                if (error.errorCode == androidx.media3.common.PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
+                    android.util.Log.d("VideoPlayer", "Behind live window exception. Seeking to default position and preparing...")
+                    player.seekToDefaultPosition()
+                    player.prepare()
+                    player.play()
+                    return
                 }
-                
-                errorMessage = "$baseMsg\n\n⚠️ Channel is offline / unplayable.\nSkipping to next channel automatically in 3 seconds...\n\n⚠️ চ্যানেলটি অফলাইন বা প্লে হচ্ছে না।\n৩ সেকেন্ডে পরবর্তী চ্যানেলে স্কিপ করা হচ্ছে..."
-                isBuffering = false
+
+                if (retryCount < 5) {
+                    retryCount++
+                    val retryDelay = (1500 + (retryCount - 1) * 1000).toLong().coerceIn(1500L, 5000L)
+                    android.util.Log.d("VideoPlayer", "Transient playback error encountered, auto-retrying... Attempt $retryCount/5 in ${retryDelay}ms")
+                    isBuffering = true
+                    coroutineScope.launch {
+                        delay(retryDelay)
+                        retryTrigger++
+                    }
+                } else {
+                    val errorCodeName = error.errorCodeName
+                    val isNetworkError = errorCodeName.contains("NETWORK") || errorCodeName.contains("DNS") || errorCodeName.contains("TIMEOUT")
+                    
+                    val baseMsg = if (isNetworkError) {
+                        "This channel is Geo-Blocked or restricted to Local ISP Networks (BDIX).\n\nThe Web Preview Emulator cannot play it because it runs on Global Cloud Servers."
+                    } else {
+                        "Stream Error: ${error.message ?: "Unknown Error"}\nCode: ${errorCodeName}"
+                    }
+                    
+                    errorMessage = baseMsg
+                    isBuffering = false
+                }
             }
         }
         player.addListener(listener)
@@ -198,7 +237,7 @@ fun VideoPlayer(
     }
 
     // Separately handle stream url changes on the existing ExoPlayer instance to avoid slow recreate freezes
-    LaunchedEffect(streamUrl, exoPlayer) {
+    LaunchedEffect(streamUrl, exoPlayer, retryTrigger) {
         val player = exoPlayer ?: return@LaunchedEffect
         if (streamUrl.isNullOrEmpty()) {
             player.stop()
@@ -347,9 +386,10 @@ fun VideoPlayer(
             )
 
             // Android Media3 PlayerView inside Compose container
+            val playerViewContext = context.toAttributedContext("media")
             AndroidView(
                 factory = { _ ->
-                    PlayerView(context).apply {
+                    PlayerView(playerViewContext).apply {
                         useController = false
                         keepScreenOn = true
                         isFocusable = false
@@ -552,22 +592,91 @@ fun VideoPlayer(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.8f)),
+                        .background(Color.Black.copy(alpha = 0.9f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center,
-                        modifier = Modifier.padding(16.dp)
+                        modifier = Modifier
+                            .fillMaxWidth(0.85f)
+                            .background(Color(0xFF1E1E1E), RoundedCornerShape(16.dp))
+                            .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(16.dp))
+                            .padding(24.dp)
                     ) {
-                        Text("⚠️ Stream Unreachable", color = Color.Red, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            errorMsg,
-                            color = Color.White.copy(alpha = 0.9f),
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                            modifier = Modifier.padding(16.dp)
+                            text = "⚠️ Stream Unreachable / চ্যানেলটি অফলাইন",
+                            color = Color(0xFFFF5252),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 20.sp,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = errorMsg,
+                            color = Color.White.copy(alpha = 0.8f),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            fontSize = 14.sp,
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+                        Spacer(modifier = Modifier.height(20.dp))
+                        Text(
+                            text = "Auto-skipping in $countdownSeconds seconds...\n(স্বয়ংক্রিয় স্কিপ হচ্ছে $countdownSeconds সেকেন্ডে...)",
+                            color = Color(0xFFFF9800),
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 14.sp,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Button(
+                                onClick = {
+                                    errorMessage = null
+                                    retryCount = 0
+                                    retryTrigger++
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFFFF9800),
+                                    contentColor = Color.Black
+                                ),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.height(44.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = "Retry",
+                                    tint = Color.Black,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Retry Now (আবার চেষ্টা করুন)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            }
+
+                            Button(
+                                onClick = {
+                                    errorMessage = null
+                                    currentOnNextChannel()
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color.White.copy(alpha = 0.15f),
+                                    contentColor = Color.White
+                                ),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.height(44.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.SkipNext,
+                                    contentDescription = "Skip",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Skip (পরবর্তী)", fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                            }
+                        }
                     }
                 }
             }
